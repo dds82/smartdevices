@@ -15,10 +15,6 @@ metadata {
         attribute "SnoozeDuration", "string"
         attribute "alarmStatus", "string"
         attribute "Wake", "string"
-        attribute "hUp", "string"
-        attribute "hDown", "string"
-        attribute "mUp", "string"
-        attribute "mDown", "string"
         command "changeAlarmTime"
         command "changeSnoozeDuration"
         command "changeAlarmStatus"
@@ -242,19 +238,6 @@ def Sunday_On(){
   def Wake(){
      sendEvent(name:"Wake",value:"on", isStateChange: true)
  }
-  def hUp(){
- sendEvent(name:"hUp",value:"on", isStateChange: true)
- } 
- def hDown(){
- sendEvent(name:"hDown",value:"on", isStateChange: true)
- }
-  def mUp(){
- sendEvent(name:"mUp",value:"on", isStateChange: true)
- } 
- def mDown(){
- sendEvent(name:"mDown",value:"on", isStateChange: true)
- }
- 
  def fireChangeEvent() {
  	sendEvent(name:"switch", value:device.currentValue("switch"), isStateChange: true)
  }
