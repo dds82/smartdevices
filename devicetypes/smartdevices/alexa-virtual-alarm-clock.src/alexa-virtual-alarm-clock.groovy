@@ -1,3 +1,5 @@
+import groovy.transform.Field
+
 metadata {
  	definition (name: "Alexa Virtual Alarm Clock", namespace: "smartdevices", author: "Daniel Segall") {
  		capability "Actuator"
@@ -11,100 +13,45 @@ metadata {
         attribute "Friday", "string"
         attribute "Saturday", "string"
         attribute "Sunday", "string"
+        attribute "Shabbat", "string"
         attribute "Snooze", "string"
         attribute "SnoozeDuration", "string"
         attribute "alarmStatus", "string"
         command "changeAlarmTime"
         command "changeSnoozeDuration"
         command "changeAlarmStatus"
-        command "Monday_On"
-        command "Monday_Off"
-        command "Tuesday_On"
-        command "Tuesday_Off"
-        command "Wednesday_On"
-        command "Wednesday_Off"
-        command "Thursday_On"
-        command "Thursday_Off"
-        command "Friday_On"
-        command "Friday_Off"
-        command "Saturday_On"
-        command "Saturday_Off"
-        command "Sunday_On"
-        command "Sunday_Off"
         command "Snooze_On"
         command "Snooze_Off"
      }
      preferences {
-     input name: "timer", type: "time", title: "Alarm Time", description: "Enter Time", required: false
-     input name: "snoozeDuration", type: "number", title: "Snooze Duration", description: "Enter Snooze Duration (Minutes)", required: false
- 	}
-
- 	// UI tile definitions
- 	tiles {
- 		multiAttributeTile(name:"switch", type: "generic", width: 3, height: 3, canChangeIcon: true, canChangeBackground: false){
-			tileAttribute ("device.switch", key: "PRIMARY_CONTROL") {
- 			attributeState "off", label: 'off', action: "switch.on", icon: "st.Office.office6", backgroundColor: "#ffffff"
- 			attributeState "on", label: 'on', action: "switch.off", icon: "st.Office.office6", backgroundColor: "#e86d13"
- 		}
-        	tileAttribute("device.alarmStatus", key: "SECONDARY_CONTROL") {
-            attributeState("alarmStatus", label:'Status: \n${currentValue}', defaultState: true)
-        }
-  
-        }
- 		valueTile("alarm", "device.alarm", width: 2, height: 2) {
- 			state "default", label:'Set for: \n${currentValue}'
- 		}
-        standardTile("Snooze", "device.Snooze", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-            state "on", label:"", action:"", icon:"https://cdn.rawgit.com/RobinWinbourne/devicetypes/master/Snooze_Button_On_Orange.png"//, backgroundColor: "#e86d13"
-            state "off", label:"", action:"Snooze_On", icon:"https://cdn.rawgit.com/RobinWinbourne/devicetypes/master/Snooze_Button.png"//, backgroundColor: "#ffffff"
-        }
-        standardTile("Monday", "device.Monday", decoration: "flat",canChangeIcon: true, width: 2, height: 2) {
-		state "on", label: "Mon", action: "Monday_Off", icon: "st.Office.office6", backgroundColor: "#00A0DC"
-		state "off", label: "Mon", action: "Monday_On", icon: "st.Bedroom.bedroom2", backgroundColor: "#ffffff"
-    }
-        standardTile("Tuesday", "device.Tuesday", decoration: "flat",canChangeIcon: true, width: 2, height: 2) {
-		state "on", label: "Tue", action: "Tuesday_Off", icon: "st.Office.office6", backgroundColor: "#00A0DC"
-		state "off", label: "Tue", action: "Tuesday_On", icon: "st.Bedroom.bedroom2", backgroundColor: "#ffffff"
-    }
-   		standardTile("Wednesday", "device.Wednesday", decoration: "flat",canChangeIcon: true, width: 2, height: 2) {
-		state "on", label: "Wed", action: "Wednesday_Off", icon: "st.Office.office6", backgroundColor: "#00A0DC"
-		state "off", label: "Wed", action: "Wednesday_On", icon: "st.Bedroom.bedroom2", backgroundColor: "#ffffff"
-    }
-   		standardTile("Thursday", "device.Thursday", decoration: "flat",canChangeIcon: true, width: 2, height: 2) {
-		state "on", label: "Thu", action: "Thursday_Off", icon: "st.Office.office6", backgroundColor: "#00A0DC"
-		state "off", label: "Thu", action: "Thursday_On", icon: "st.Bedroom.bedroom2", backgroundColor: "#ffffff"
-    }
-   		standardTile("Friday", "device.Friday", decoration: "flat",canChangeIcon: true, width: 2, height: 2) {
-		state "on", label: "Fri", action: "Friday_Off", icon: "st.Office.office6", backgroundColor: "#00A0DC"
-		state "off", label: "Fri", action: "Friday_On", icon: "st.Bedroom.bedroom2", backgroundColor: "#ffffff"
-    }
-   		standardTile("Saturday", "device.Saturday", decoration: "flat",canChangeIcon: true, width: 2, height: 2) {
-		state "on", label: "Sat", action: "Saturday_Off", icon: "st.Office.office6", backgroundColor: "#00A0DC"
-		state "off", label: "Sat", action: "Saturday_On", icon: "st.Bedroom.bedroom2", backgroundColor: "#ffffff"
-    }
-   		standardTile("Sunday", "device.Sunday", decoration: "flat",canChangeIcon: true, width: 2, height: 2) {
-		state "on", label: "Sun", action: "Sunday_Off", icon: "st.Office.office6", backgroundColor: "#00A0DC"
-		state "off", label: "Sun", action: "Sunday_On", icon: "st.Bedroom.bedroom2", backgroundColor: "#ffffff"
-    }
-    	valueTile("snoozeDuration", "device.snoozeDuration", width: 2, height: 2) {
- 			state "default", label:'Snooze Duration \n ${currentValue} minutes'
- 		}
-        
- 		main(["switch","alarm"])
- 		details(["switch","alarm","Snooze","snoozeDuration","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"])
+         input name: "timer", type: "time", title: "Alarm Time", description: "Enter Time", required: false
+         configParams.each {input it.value}
  	}
  }
+
+@Field static Map configParams = [
+        "Sunday": [name: "sunday", type: "bool", title: "Sunday", description: "", required: false],
+         "Monday": [name: "monday", type: "bool", title: "Monday", description: "", required: false],
+         "Tuesday": [name: "tuesday", type: "bool", title: "Tuesday", description: "", required: false],
+         "Wednesday": [name: "wednesday", type: "bool", title: "Wednesday", description: "", required: false],
+         "Thursday": [name: "thursday", type: "bool", title: "Thursday", description: "", required: false],
+         "Friday": [name: "friday", type: "bool", title: "Friday", description: "", required: false],
+         "Saturday": [name: "saturday", type: "bool", title: "Saturday", description: "", required: false],
+         "Shabbat": [name: "shabbat", type: "bool", title: "Shabbat/Yom Tov", description: "", required: false],
+]
+
  def parse() {
  }
  
  def initialize() {
+    Saturday_Off()
+    Sunday_Off()
  	Monday_On()
     Tuesday_On()
     Wednesday_On()
     Thursday_On()
     Friday_On()
-    Saturday_On()
-    Sunday_On()
+     sendEvent("name":"Shabbat","value":false)
  }
  
  def updated() {
@@ -124,6 +71,9 @@ metadata {
             
      //  def snooze = snoozeDuration.substring
        sendEvent("name":"snoozeDuration", "value":snoozeDuration)
+     configParams.each {
+         sendEvent("name":it.key,"value":settings[it.value.name] ? "on" : "off")
+     }
        
  }
  def on(){
@@ -218,3 +168,4 @@ def Sunday_On(){
  def fireChangeEvent() {
  	sendEvent(name:"switch", value:device.currentValue("switch"), isStateChange: true)
  }
+    
