@@ -42,6 +42,10 @@ metadata {
 
  def parse() {
  }
+
+def installed() {
+    initialize()
+}
  
  def initialize() {
     Saturday_Off()
@@ -96,64 +100,78 @@ def changeAlarmStatus(paramStatus) {
 def Monday_On(){
  sendEvent(name:"Monday",value:"on")
  sendEvent(name:"switch",value:"on")
+    device.updateSetting("monday", true)
  fireChangeEvent()
  }
  def Monday_Off(){
  sendEvent(name:"Monday",value:"off")
+ device.updateSetting("monday", false)
  fireChangeEvent()
  } 
 def Tuesday_On(){
  sendEvent(name:"Tuesday",value:"on")
  sendEvent(name:"switch",value:"on")
+ device.updateSetting("tuesday", true)
  fireChangeEvent()
  }
  def Tuesday_Off(){
  sendEvent(name:"Tuesday",value:"off")
+ device.updateSetting("tuesday", false)
  fireChangeEvent()
  } 
 def Wednesday_On(){
  sendEvent(name:"Wednesday",value:"on")
  sendEvent(name:"switch",value:"on")
+ device.updateSetting("wednesday", true)
  fireChangeEvent()
  }
  def Wednesday_Off(){
  sendEvent(name:"Wednesday",value:"off")
+ device.updateSetting("wednesday", false)
  fireChangeEvent()
  } 
 def Thursday_On(){
  sendEvent(name:"Thursday",value:"on")
  sendEvent(name:"switch",value:"on")
+ device.updateSetting("thursday", true)
  fireChangeEvent()
  }
  def Thursday_Off(){
  sendEvent(name:"Thursday",value:"off")
+ device.updateSetting("thursday", false)
  fireChangeEvent()
  } 
 def Friday_On(){
  sendEvent(name:"Friday",value:"on")
  sendEvent(name:"switch",value:"on")
+ device.updateSetting("friday", true)
  fireChangeEvent()
  }
  def Friday_Off(){
  sendEvent(name:"Friday",value:"off")
+ device.updateSetting("friday", false)
  fireChangeEvent()
  } 
 def Saturday_On(){
  sendEvent(name:"Saturday",value:"on")
  sendEvent(name:"switch",value:"on")
+ device.updateSetting("saturday", true)
  fireChangeEvent()
  }
  def Saturday_Off(){
  sendEvent(name:"Saturday",value:"off")
+ device.updateSetting("saturday", false)
  fireChangeEvent()
  } 
 def Sunday_On(){
  sendEvent(name:"Sunday",value:"on")
  sendEvent(name:"switch",value:"on")
+ device.updateSetting("sunday", true)
  fireChangeEvent()
  }
  def Sunday_Off(){
  sendEvent(name:"Sunday",value:"off")
+ device.updateSetting("sunday", false)
  fireChangeEvent()
  } 
  def Snooze_On(){
