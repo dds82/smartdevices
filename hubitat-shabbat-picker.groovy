@@ -95,8 +95,10 @@ def updateActiveTime(type, regular) {
                 break
         }
     }
-    else
+    else {
         activeTime = regularTime
+        activeType = "Regular"
+    }
     
     sendEvent("name":"activeType", "value":type)
     sendEvent("name":"activeTime", "value":activeTime)
