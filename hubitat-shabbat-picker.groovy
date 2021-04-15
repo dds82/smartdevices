@@ -97,7 +97,7 @@ def updateActiveTime(type, regular) {
     }
     else {
         activeTime = regularTime
-        activeType = "Regular"
+        type = "Regular"
     }
     
     sendEvent("name":"activeType", "value":type)
