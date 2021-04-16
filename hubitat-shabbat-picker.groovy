@@ -1,6 +1,7 @@
 import groovy.transform.Field
 import java.util.Date
 import java.util.Calendar
+import java.util.HashMap
 import java.text.SimpleDateFormat
 
 metadata {
@@ -14,11 +15,15 @@ metadata {
         attribute "times", "string"
         attribute "activeType", "enum", ["Regular", "Plag", "Early"]
         command "setRegularTime", ["long"]
+        command "saveCurrentType", ["string"]
+        command "restorePreviousType", ["string"]
         command "regular"
         command "plag"
         command "early"
      }
  }
+
+final String SEASONAL = "__seasonal__"
 
  def parse() {
  }
@@ -29,6 +34,9 @@ def installed() {
 }
  
  def initialize() {
+     if (state.savedTypes == null)
+         state.savedTypes = new HashMap()
+     
     Date regular = new Date(location.sunset.getTime() - (18 * 60000))
      setRegularTime(regular)
  }
@@ -58,12 +66,30 @@ def early() {
      initialize()
  }
 
-def updateActiveTime(type) {
-    Calendar regular = regularTimeOnCalendar()
-    updateActiveTime(type, regular)
+def saveCurrentType(key) {
+    saveType(key, device.currentValue("activeType"))
 }
 
-def updateActiveTime(type, regular) {
+def saveType(key, type) {
+    state.savedTypes[key] = type
+}
+
+def restorePreviousType(key) {
+    def type = getPreviousType(key)
+    if (type)
+        updateActiveTime(type)
+}
+
+def getPreviousType(key) {
+    return state.savedTypes[key]
+}
+
+def updateActiveTime(type) {
+    Calendar regular = regularTimeOnCalendar()
+    updateActiveTime(type, regular, false)
+}
+
+def updateActiveTime(type, regular, timeChanged = true) {
     int time = (regular.get(Calendar.HOUR_OF_DAY) * 100) + regular.get(Calendar.MINUTE)
     def regularTime = regular.getTimeInMillis()
     
@@ -78,9 +104,15 @@ def updateActiveTime(type, regular) {
     def earlyTime = regular.getTimeInMillis()
     
     def activeTime = null
+    def prevEarlyOption = state.hasEarlyOption
     
     boolean earlyOption = time >= 1850
     if (earlyOption) {
+        if (timeChanged && prevEarlyOption != null && prevEarlyOption.booleanValue() != earlyOption) {
+            type = getPreviousType(SEASONAL)
+            saveType(SEASONAL, null)
+        }
+        
         switch (type) {
             case "Regular":
                 activeTime = regularTime
@@ -96,9 +128,16 @@ def updateActiveTime(type, regular) {
         }
     }
     else {
+        if (timeChanged && prevEarlyOption != null && prevEarlyOption.booleanValue() != earlyOption) {
+            saveCurrentType(SEASONAL)
+        }
+        
         activeTime = regularTime
         type = "Regular"
     }
+    
+    if (timeChanged)
+        state.hasEarlyOption = earlyOption
     
     sendEvent("name":"activeType", "value":type)
     sendEvent("name":"activeTime", "value":activeTime)
