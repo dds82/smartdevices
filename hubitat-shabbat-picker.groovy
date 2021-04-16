@@ -17,6 +17,7 @@ metadata {
         command "setRegularTime", ["long"]
         command "saveCurrentType", ["string"]
         command "restorePreviousType", ["string"]
+        command "restorePreviousManualType"
         command "regular"
         command "plag"
         command "early"
@@ -24,6 +25,7 @@ metadata {
  }
 
 final String SEASONAL = "__seasonal__"
+final String MANUAL_EARLY = "__manual_early__"
 
  def parse() {
  }
@@ -80,6 +82,10 @@ def restorePreviousType(key) {
         updateActiveTime(type)
 }
 
+def restorePreviousManualType() {
+    restorePreviousType(MANUAL_EARLY)
+}
+
 def getPreviousType(key) {
     return state.savedTypes[key]
 }
@@ -105,6 +111,10 @@ def updateActiveTime(type, regular, timeChanged = true) {
     
     def activeTime = null
     def prevEarlyOption = state.hasEarlyOption
+    
+    if (!timeChanged && type != "Regular") {
+        saveType(MANUAL_EARLY, type)
+    }
     
     boolean earlyOption = time >= 1850
     if (earlyOption) {
