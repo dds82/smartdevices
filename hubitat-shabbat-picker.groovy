@@ -111,31 +111,46 @@ def updateTimes(boolean earlyOption, long earlyTime, long plagTime, long regular
     def times
     
     SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM dd @ h:mm a")
-    final String headerBegin = "<font color=\"red\">"
-    final String headerEnd = "</font>"
+    final String headerBegin = "<span style=\"border: 2px outset\">"
+    final String headerEnd = "</span>"
+    
+    final String dimBegin = "<i>"
+    final String dimEnd = "</i>"
     
     if (earlyOption) {
         String text = ""
         if (activeType == "Plag")
             text += headerBegin
+        else
+            text += dimBegin
         text += sdf.format(new Date(plagTime))
         if (activeType == "Plag")
             text += headerEnd
-        text += "<br>"
+        else
+            text += dimEnd
+        text += "<br /><br />"
         
         if (activeType == "Early")
             text += headerBegin
+        else
+            text += dimBegin
         text += sdf.format(new Date(earlyTime))
         if (activeType == "Early")
             text += headerEnd
+        else
+            text += dimEnd
         
-        text += "<br>"
+        text += "<br /><br />"
         
         if (activeType == "Regular")
             text += headerBegin
+        else
+            text += dimBegin
         text += sdf.format(new Date(regularTime))
         if (activeType == "Regular")
             text += headerEnd
+        else
+            text += dimEnd
         
         times = text
     }
