@@ -24,8 +24,8 @@ metadata {
      }
  }
 
-final String SEASONAL = "__seasonal__"
-final String MANUAL_EARLY = "__manual_early__"
+@Field static final String SEASONAL = "__seasonal__"
+@Field static final String MANUAL_EARLY = "__manual_early__"
 
  def parse() {
  }
@@ -34,10 +34,14 @@ def installed() {
     initialize()
     plag()
 }
+
+def createStateMap() {
+    if (state.savedTypes == null)
+         state.savedTypes = new HashMap()
+}
  
  def initialize() {
-     if (state.savedTypes == null)
-         state.savedTypes = new HashMap()
+     createStateMap()
      
     Date regular = new Date(location.sunset.getTime() - (18 * 60000))
      setRegularTime(regular)
@@ -73,6 +77,7 @@ def saveCurrentType(key) {
 }
 
 def saveType(key, type) {
+    createStateMap()
     state.savedTypes[key] = type
 }
 
@@ -87,6 +92,7 @@ def restorePreviousManualType() {
 }
 
 def getPreviousType(key) {
+    createStateMap()
     return state.savedTypes[key]
 }
 
@@ -221,6 +227,7 @@ Calendar regularTimeOnCalendar(currTime) {
 }
 
 def push(num) {
+    log.debug "map: ${state.savedTypes}"
     switch (num.toInteger()) {
         case 0:
             plag()
