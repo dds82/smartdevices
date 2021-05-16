@@ -49,7 +49,10 @@ def createStateMap() {
 
 def setRegularTime(long date) {
     sendEvent("name":"regularTime", "value":date)
-    def activeType = device.currentValue("activeType")
+    def activeType = device.getDataValue("activeType")
+    if (activeType == null)
+        activeType = device.currentValue("activeType")
+    
     if (activeType == null)
         activeType = "Plag"
     
@@ -155,6 +158,7 @@ def updateActiveTime(type, regular, timeChanged = true) {
     if (timeChanged)
         state.hasEarlyOption = earlyOption
     
+    device.updateDataValue("activeType", type)
     sendEvent("name":"activeType", "value":type)
     sendEvent("name":"activeTime", "value":activeTime)
     sendEvent("name":"earlyTime", "value":earlyTime)
