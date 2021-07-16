@@ -166,10 +166,24 @@ def updateActiveTime(type, regular, timeChanged = true) {
     updateTimes(earlyOption, earlyTime, plagTime, regularTime, type)
 }
 
+String declareJavascriptFunction(int deviceid, String command) {
+    String url = "https://cloud.hubitat.com/api/62feb033-2cf1-437b-91ca-d9fd9150d7c5/apps/47/devices/" + deviceid + "/" + command + "?access_token=5ed1959b-931f-40c1-9e8a-e8536cc0ce48"
+    String s = "var xhttp = new XMLHttpRequest();"
+    s += "xhttp.open(\"GET\", \"" + url + "\", true);"
+    s += "xhttp.send();"
+    return s
+}
+
+String clickableBegin(String command) {
+    return "<div onclick='javascript:" + declareJavascriptFunction(780, command) + "'>"
+}
+
 def updateTimes(boolean earlyOption, long earlyTime, long plagTime, long regularTime, String activeType) {
     def times
     
     SimpleDateFormat sdf = new SimpleDateFormat("EEE MMM dd @ h:mm a")
+    final String clickableEnd = "</div>"
+    
     final String headerBegin = "<span style=\"border: 2px outset\">"
     final String headerEnd = "</span>"
     
@@ -177,7 +191,7 @@ def updateTimes(boolean earlyOption, long earlyTime, long plagTime, long regular
     final String dimEnd = "</i>"
     
     if (earlyOption) {
-        String text = ""
+        String text = clickableBegin("plag")
         if (activeType == "Plag")
             text += headerBegin
         else
@@ -187,8 +201,11 @@ def updateTimes(boolean earlyOption, long earlyTime, long plagTime, long regular
             text += headerEnd
         else
             text += dimEnd
-        text += "<br /><br />"
         
+        text += clickableEnd
+        text += "<br />"
+        
+        text += clickableBegin("early")
         if (activeType == "Early")
             text += headerBegin
         else
@@ -199,8 +216,10 @@ def updateTimes(boolean earlyOption, long earlyTime, long plagTime, long regular
         else
             text += dimEnd
         
-        text += "<br /><br />"
+        text += clickableEnd
+        text += "<br />"
         
+        text += clickableBegin("regular")
         if (activeType == "Regular")
             text += headerBegin
         else
@@ -210,6 +229,8 @@ def updateTimes(boolean earlyOption, long earlyTime, long plagTime, long regular
             text += headerEnd
         else
             text += dimEnd
+        
+        text += clickableEnd
         
         times = text
     }
