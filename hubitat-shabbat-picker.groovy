@@ -175,7 +175,7 @@ String declareJavascriptFunction(int deviceid, String command) {
 }
 
 String clickableBegin(String command) {
-    return "<div onclick='javascript:" + declareJavascriptFunction(780, command) + "'>"
+    return "<div style=\"padding-bottom:12px\" onclick='javascript:" + declareJavascriptFunction(780, command) + "'>"
 }
 
 def updateTimes(boolean earlyOption, long earlyTime, long plagTime, long regularTime, String activeType) {
@@ -203,7 +203,6 @@ def updateTimes(boolean earlyOption, long earlyTime, long plagTime, long regular
             text += dimEnd
         
         text += clickableEnd
-        text += "<br />"
         
         text += clickableBegin("early")
         if (activeType == "Early")
@@ -217,7 +216,6 @@ def updateTimes(boolean earlyOption, long earlyTime, long plagTime, long regular
             text += dimEnd
         
         text += clickableEnd
-        text += "<br />"
         
         text += clickableBegin("regular")
         if (activeType == "Regular")
