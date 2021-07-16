@@ -196,7 +196,7 @@ def updateTimes(boolean earlyOption, long earlyTime, long plagTime, long regular
             text += headerBegin
         else
             text += dimBegin
-        text += sdf.format(new Date(plagTime))
+        text += "Plag: " + sdf.format(new Date(plagTime))
         if (activeType == "Plag")
             text += headerEnd
         else
@@ -209,7 +209,7 @@ def updateTimes(boolean earlyOption, long earlyTime, long plagTime, long regular
             text += headerBegin
         else
             text += dimBegin
-        text += sdf.format(new Date(earlyTime))
+        text += "Early: " + sdf.format(new Date(earlyTime))
         if (activeType == "Early")
             text += headerEnd
         else
@@ -222,7 +222,7 @@ def updateTimes(boolean earlyOption, long earlyTime, long plagTime, long regular
             text += headerBegin
         else
             text += dimBegin
-        text += sdf.format(new Date(regularTime))
+        text += "Zman: " + sdf.format(new Date(regularTime))
         if (activeType == "Regular")
             text += headerEnd
         else
