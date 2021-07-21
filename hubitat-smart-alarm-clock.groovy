@@ -169,6 +169,8 @@ String daysOfWeek() {
 def doScheduleChange(sched=null, fireEvent=true) {
     doUnschedule()
     tripperOff()
+    if (device.currentValue("switch") != "on")
+        return
     
     if (!sched)
         sched = timer
