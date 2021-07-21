@@ -18,6 +18,7 @@ metadata {
         attribute "tripped", "enum", ["true", "false"]
         attribute "SnoozeDuration", "number"
         attribute "editableTime", "string"
+        attribute "alarmTime", "string"
         command "changeAlarmTime", [[name: "Time*", type: "STRING"]]
         command "setDayState", [[name: "Day*", type: "ENUM", constraints: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Shabbat"]], [name: "Enabled*", type: "ENUM", constraints: ["on", "off", "default"]]]
         command "snooze"
@@ -164,13 +165,14 @@ def doScheduleChange(sched=null) {
         
         Calendar cal = Calendar.getInstance()
         cal.setTime(sched)
-        log.debug "time is ${cal.getTime()} ${sched}"
+        //log.debug "time is ${cal.getTime()} ${sched}"
         
         String cron = "0 ${cal.get(Calendar.MINUTE)} ${cal.get(Calendar.HOUR_OF_DAY)} ? * ${daysOfWeek()}"
         schedule(cron, alarmEvent)
         
         SimpleDateFormat df = new SimpleDateFormat("HH:mm")
         def timeOnly = df.format(sched)
+        sendEvent(name: "alarmTime", value: timeOnly)
         updateHtmlWidgets(timeOnly)
     }
 }
