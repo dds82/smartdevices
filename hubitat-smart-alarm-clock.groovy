@@ -35,13 +35,13 @@ metadata {
  }
 
 @Field static Map configParams = [
-        "Sunday": [name: "sunday", type: "bool", title: "Sunday", description: "", required: false],
-         "Monday": [name: "monday", type: "bool", title: "Monday", description: "", required: false],
-         "Tuesday": [name: "tuesday", type: "bool", title: "Tuesday", description: "", required: false],
-         "Wednesday": [name: "wednesday", type: "bool", title: "Wednesday", description: "", required: false],
-         "Thursday": [name: "thursday", type: "bool", title: "Thursday", description: "", required: false],
-         "Friday": [name: "friday", type: "bool", title: "Friday", description: "", required: false],
-         "Saturday": [name: "saturday", type: "bool", title: "Saturday", description: "", required: false]
+        "Sunday": [name: "sunday", type: "bool", title: "Sunday", description: "", required: false, defaultValue:true],
+         "Monday": [name: "monday", type: "bool", title: "Monday", description: "", required: false, defaultValue:true],
+         "Tuesday": [name: "tuesday", type: "bool", title: "Tuesday", description: "", required: false, defaultValue:true],
+         "Wednesday": [name: "wednesday", type: "bool", title: "Wednesday", description: "", required: false, defaultValue:true],
+         "Thursday": [name: "thursday", type: "bool", title: "Thursday", description: "", required: false, defaultValue:true],
+         "Friday": [name: "friday", type: "bool", title: "Friday", description: "", required: false, defaultValue:true],
+         "Saturday": [name: "saturday", type: "bool", title: "Saturday", description: "", required: false, defaultValue:false]
 ]
 
 @Field static String[] daysOfWeek = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
@@ -59,15 +59,9 @@ List<String> getModeOptions() {
  }
 
 def installed() {
-    Saturday_Off()
-    Sunday_Off()
- 	Monday_On()
-    Tuesday_On()
-    Wednesday_On()
-    Thursday_On()
-    Friday_On()
-     device.updateSetting("shabbat", "off")
-     sendEvent("name":"Shabbat","value":"off")
+    updated()
+    changeAlarmTime("07:00")
+    off()
 }
  
  def initialize() {
@@ -112,7 +106,7 @@ def changeSnoozeDuration(paramSnooze) {
 }
 
 def setDayState(String day, String state) {
-    String attr = day.charAt(0).toUpperCase() + day.substring(1).toLowerCase()
+    String attr = String.valueOf(day.charAt(0).toUpperCase()) + day.substring(1).toLowerCase()
     String setting = day.toLowerCase()
     
     if (setting.equals("shabbat")) {
@@ -242,15 +236,8 @@ String declareJavascriptFunction(deviceid, String command, String secondaryValue
     return s
 }
 
-String clickableBegin(String command, String secondaryValue=null) {
-    if (makerUrl != null && accessToken != null)
-        return "<div style=\"padding-bottom:12px\" onclick='javascript:" + declareJavascriptFunction(device.id, command, secondaryValue) + "'>"
-    
-    return "<div style=\"padding-bottom:12px\">"
-}
-
 def updateHtmlWidgets(String time) {
     String js = declareJavascriptFunction(device.id, "changeAlarmTime", "document.getElementById(\"newtime\").value", true)
-    String html = "<input id=\"newtime\" type=\"time\" value=\"${time}\" /><input type=\"button\" value=\"Set\" onclick='javascript:" + js + "' />"
+    String html = "<input id=\"newtime\" type=\"time\" value=\"${time}\" /> <input type=\"button\" value=\"Set\" style=\"padding-left:2px;padding-right:2px\" onclick='javascript:" + js + "' />"
     sendEvent(name: "editableTime", value: html)
 }
