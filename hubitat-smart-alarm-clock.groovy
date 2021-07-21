@@ -171,7 +171,6 @@ def doScheduleChange(sched=null) {
         
         SimpleDateFormat df = new SimpleDateFormat("HH:mm")
         def timeOnly = df.format(sched)
-        device.setLabel(device.getName() + " (" + timeOnly +")")
         updateHtmlWidgets(timeOnly)
     }
 }
