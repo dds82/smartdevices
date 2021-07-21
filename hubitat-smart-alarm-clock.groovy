@@ -299,7 +299,7 @@ String declareJavascriptFunction(deviceid, String command, String secondaryValue
 }
 
 def updateHtmlWidgets(String time) {
-    String js = declareJavascriptFunction(device.id, "changeAlarmTime", "document.getElementById(\"newtime\").value", true)
-    String html = "<input id=\"newtime\" type=\"time\" value=\"${time}\" /> <input type=\"button\" value=\"Set\" style=\"padding-left:2px;padding-right:2px\" onclick='javascript:" + js + "' />"
+    String js = declareJavascriptFunction(device.id, "changeAlarmTime", "document.getElementById(\"newtime-${device.id}\").value", true)
+    String html = "<input id=\"newtime-${device.id}\" type=\"time\" value=\"${time}\" /> <input type=\"button\" value=\"Set\" style=\"padding-left:2px;padding-right:2px\" onclick='javascript:" + js + "' />"
     sendEvent(name: "editableTime", value: html)
 }
