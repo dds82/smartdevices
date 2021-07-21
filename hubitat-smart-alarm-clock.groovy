@@ -95,7 +95,7 @@ def installed() {
 
  def changeAlarmTime(paramTime) {
      SimpleDateFormat df = new SimpleDateFormat("HH:mm")
-     log.debug "changeAlarmTime ${paramTime} ${df.parse(paramTime)}"
+     //log.debug "changeAlarmTime ${paramTime} ${df.parse(paramTime)}"
      Date d = df.parse(paramTime)
      device.updateSetting("timer", d)
      tripperOff()
