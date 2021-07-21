@@ -82,13 +82,15 @@ def installed() {
  }
 
  def on(){
- sendEvent(name:"switch",value:"on")
- tripperOff()
+     sendEvent(name:"switch",value:"on")
+     tripperOff()
+     doScheduleChange(null, true)
  }
 
  def off(){
- sendEvent(name:"switch",value:"off")
- tripperOff()
+     sendEvent(name:"switch",value:"off")
+     tripperOff()
+     doUnschedule()
  } 
 
  def changeAlarmTime(paramTime) {
@@ -164,7 +166,7 @@ String daysOfWeek() {
     return str
 }
 
-def doScheduleChange(sched=null) {
+def doScheduleChange(sched=null, fireEvent=true) {
     doUnschedule()
     tripperOff()
     
@@ -190,18 +192,24 @@ def doScheduleChange(sched=null) {
             schedule(cron, preAlarmEvent)
             
             def preAlarmTimeOnly = df.format(cal.getTime())
-            sendEvent(name: "preAlarmTime", value: preAlarmTimeOnly)
+            if (fireEvent)
+                sendEvent(name: "preAlarmTime", value: preAlarmTimeOnly)
         }
         
         def timeOnly = df.format(sched)
-        sendEvent(name: "alarmTime", value: timeOnly)
+        if (fireEvent)
+            sendEvent(name: "alarmTime", value: timeOnly)
+        
         updateHtmlWidgets(timeOnly)
     }
 }
 
-boolean dismiss() {
+boolean dismiss(turnMasterSwitchOff=true) {
     if (tripped) {
         tripperOff()
+        if (turnMasterSwitchOff)
+            off()
+        
         return true
     }
     
@@ -209,7 +217,7 @@ boolean dismiss() {
 }
 
 def snooze() {
-    if (dismiss()) {
+    if (dismiss(false)) {
         runIn(snoozeDuration * 60, snoozed)
     }
 }
