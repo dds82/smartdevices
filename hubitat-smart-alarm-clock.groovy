@@ -169,8 +169,7 @@ String daysOfWeek() {
 def doScheduleChange(sched=null, fireEvent=true) {
     doUnschedule()
     tripperOff()
-    if (device.currentValue("switch") != "on")
-        return
+    boolean scheduleCron = (device.currentValue("switch") == "on")
     
     if (!sched)
         sched = timer
@@ -185,13 +184,18 @@ def doScheduleChange(sched=null, fireEvent=true) {
         
         SimpleDateFormat df = new SimpleDateFormat("HH:mm")
         
-        String cron = "0 ${cal.get(Calendar.MINUTE)} ${cal.get(Calendar.HOUR_OF_DAY)} ? * ${daysOfWeek()}"
-        schedule(cron, alarmEvent)
+        if (scheduleCron) {
+            String cron = "0 ${cal.get(Calendar.MINUTE)} ${cal.get(Calendar.HOUR_OF_DAY)} ? * ${daysOfWeek()}"
+            schedule(cron, alarmEvent)
+        }
         
         if (preAlarm != null && preAlarm > 0) {
             cal.add(Calendar.MINUTE, -preAlarm.toInteger())
-            cron = "0 ${cal.get(Calendar.MINUTE)} ${cal.get(Calendar.HOUR_OF_DAY)} ? * ${daysOfWeek()}"
-            schedule(cron, preAlarmEvent)
+            
+            if (scheduleCron) {
+                String cron = "0 ${cal.get(Calendar.MINUTE)} ${cal.get(Calendar.HOUR_OF_DAY)} ? * ${daysOfWeek()}"
+                schedule(cron, preAlarmEvent)
+            }
             
             def preAlarmTimeOnly = df.format(cal.getTime())
             if (fireEvent)
