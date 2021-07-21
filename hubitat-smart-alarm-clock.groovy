@@ -1,12 +1,12 @@
 import groovy.transform.Field
 import java.util.Calendar
+import java.text.SimpleDateFormat
 
 metadata {
  	definition (name: "Hubitat Smart Alarm Clock", namespace: "smartdevices", author: "Daniel Segall") {
  		capability "Actuator"
  		capability "Switch"
  		capability "Sensor"
-        attribute "alarm","string"
         attribute "Monday", "enum", ["on", "off"]
         attribute "Tuesday", "enum", ["on", "off"]
         attribute "Wednesday", "enum", ["on", "off"]
@@ -17,6 +17,7 @@ metadata {
         attribute "Shabbat", "enum", ["Default", "Always", "Never"]
         attribute "tripped", "enum", ["true", "false"]
         attribute "SnoozeDuration", "number"
+        attribute "editableTime", "string"
         command "changeAlarmTime", [[name: "Time*", type: "STRING"]]
         command "setDayState", [[name: "Day*", type: "ENUM", constraints: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Shabbat"]], [name: "Enabled*", type: "ENUM", constraints: ["on", "off", "default"]]]
         command "snooze"
@@ -73,15 +74,12 @@ def installed() {
     doScheduleChange()
  }
  
- def updated() {
-        def time = timer.substring(11,16)
-         
+ def updated() {         
      configParams.each {
          sendEvent("name":it.key,"value":settings[it.value.name] ? "on" : "off")
      }
      
-     device.setLabel(device.getName() + " (" + time +")")
-     doScheduleChange()       
+     doScheduleChange()
  }
 
  def on(){
@@ -95,8 +93,12 @@ def installed() {
  } 
 
  def changeAlarmTime(paramTime) {
-    sendEvent("name":"alarm", "value":paramTime)
+     SimpleDateFormat df = new SimpleDateFormat("HH:mm")
+     log.debug "changeAlarmTime ${paramTime} ${df.parse(paramTime)}"
+     Date d = df.parse(paramTime)
+     device.updateSetting("timer", d)
      tripperOff()
+     doScheduleChange(d)
 }
 
 def tripperOff() {
@@ -156,15 +158,27 @@ String daysOfWeek() {
     return str
 }
 
-def doScheduleChange() {
+def doScheduleChange(sched=null) {
     doUnschedule()
     
-    if (timer != null) {
+    if (!sched)
+        sched = timer
+    
+    if (sched != null) {
+        if (!(sched instanceof Date))
+            sched = toDateTime(sched)
+        
         Calendar cal = Calendar.getInstance()
-        cal.setTime(toDateTime(timer))
+        cal.setTime(sched)
+        log.debug "time is ${cal.getTime()} ${sched}"
         
         String cron = "0 ${cal.get(Calendar.MINUTE)} ${cal.get(Calendar.HOUR_OF_DAY)} ? * ${daysOfWeek()}"
         schedule(cron, alarmEvent)
+        
+        SimpleDateFormat df = new SimpleDateFormat("HH:mm")
+        def timeOnly = df.format(sched)
+        device.setLabel(device.getName() + " (" + timeOnly +")")
+        updateHtmlWidgets(timeOnly)
     }
 }
 
@@ -213,4 +227,30 @@ def snoozed() {
 def triggerAlarm() {
     device.updateSetting("tripped", true)
     sendEvent(name:"tripped",value:"true")
+}
+
+String declareJavascriptFunction(deviceid, String command, String secondaryValue=null, boolean secondaryJavascript=false) {
+    String url = makerUrl + deviceid + "/" + command + ((!secondaryJavascript && secondaryValue) ? "/" + secondaryValue : "")
+    String secondary = ""
+    if (secondaryJavascript) {
+        secondary = "/\"+" + secondaryValue + "+\""
+    }
+    
+    String s = "var xhttp = new XMLHttpRequest();"
+    s += "xhttp.open(\"GET\", \"" + url + secondary + "?access_token=" + accessToken + "\", true);"
+    s += "xhttp.send();"
+    return s
+}
+
+String clickableBegin(String command, String secondaryValue=null) {
+    if (makerUrl != null && accessToken != null)
+        return "<div style=\"padding-bottom:12px\" onclick='javascript:" + declareJavascriptFunction(device.id, command, secondaryValue) + "'>"
+    
+    return "<div style=\"padding-bottom:12px\">"
+}
+
+def updateHtmlWidgets(String time) {
+    String js = declareJavascriptFunction(device.id, "changeAlarmTime", "document.getElementById(\"newtime\").value", true)
+    String html = "<input id=\"newtime\" type=\"time\" value=\"${time}\" /><input type=\"button\" value=\"Set\" onclick='javascript:" + js + "' />"
+    sendEvent(name: "editableTime", value: html)
 }
