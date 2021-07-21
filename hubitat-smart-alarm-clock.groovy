@@ -16,6 +16,7 @@ metadata {
         attribute "Sunday", "enum", ["on", "off"]
         attribute "Shabbat", "enum", ["Default", "Always", "Never"]
         attribute "tripped", "enum", ["true", "false"]
+        attribute "preAlarmTripped", "enum", ["true", "false"]
         attribute "SnoozeDuration", "number"
         attribute "editableTime", "string"
         attribute "alarmTime", "string"
@@ -30,6 +31,7 @@ metadata {
          input name: "shabbat", type: "enum", title: "Shabbat/Yom Tov", description: "", required: false, options: ["off", "on", "default"], defaultValue: "off"
          input name: "shabbatMode", type: "enum", title: "Shabbat Mode name", required:true, options: getModeOptions(), defaultValue: "Shabbat"
         input name: "snoozeDuration", type: "number", title: "Snooze Duration", description: "Minutes", required: false, defaultValue: 10
+         input name: "preAlarm", type: "number", title: "Pre-Alarm", description: "How many minutes before the alarm event to fire a pre-alarm event", required: false, defaultValue: 20
          input name: "makerUrl", type: "string", title: "Maker API base URL", required: false, description: "The base URL for the maker API, up to and including 'devices/'"
          input name: "accessToken", type: "string", title: "Maker API access token", required: false, description: "Access token for the maker API"
  	}
@@ -96,7 +98,13 @@ def installed() {
      doScheduleChange(d)
 }
 
+def preAlarmOff() {
+    device.updateSetting("preAlarmTripped", false)
+    sendEvent(name:"preAlarmTripped",value:"false")
+}
+
 def tripperOff() {
+    preAlarmOff()
     device.updateSetting("tripped", false)
     sendEvent(name:"tripped",value:"false")
 }
@@ -133,6 +141,7 @@ def setDayState(String day, String state) {
 def doUnschedule() {
     unschedule(alarmEvent)
      unschedule(snoozed)
+    unschedule(preAlarmEvent)
 }
 
 String daysOfWeek() {
@@ -155,6 +164,7 @@ String daysOfWeek() {
 
 def doScheduleChange(sched=null) {
     doUnschedule()
+    tripperOff()
     
     if (!sched)
         sched = timer
@@ -169,6 +179,12 @@ def doScheduleChange(sched=null) {
         
         String cron = "0 ${cal.get(Calendar.MINUTE)} ${cal.get(Calendar.HOUR_OF_DAY)} ? * ${daysOfWeek()}"
         schedule(cron, alarmEvent)
+        
+        if (preAlarm != null && preAlarm > 0) {
+            cal.add(Calendar.MINUTE, -preAlarm.toInteger())
+            cron = "0 ${cal.get(Calendar.MINUTE)} ${cal.get(Calendar.HOUR_OF_DAY)} ? * ${daysOfWeek()}"
+            schedule(cron, preAlarmEvent)
+        }
         
         SimpleDateFormat df = new SimpleDateFormat("HH:mm")
         def timeOnly = df.format(sched)
@@ -197,7 +213,7 @@ boolean isValidDay(String d=null) {
     return result
 }
 
-def alarmEvent() {
+boolean validateAlarmEvent() {
     boolean valid = true
     if (location.mode == shabbatMode) {
         if (shabbat == "off") {
@@ -211,8 +227,20 @@ def alarmEvent() {
     else
         valid = isValidDay()
     
-    if (valid)
+    return valid
+}
+
+def preAlarmEvent() {
+    if (validateAlarmEvent()) {
+        triggerPreAlarm()
+    }
+}
+
+def alarmEvent() {
+    if (validateAlarmEvent()) {
+        preAlarmOff()
         triggerAlarm()
+    }
 }
 
 def snoozed() {
@@ -222,6 +250,11 @@ def snoozed() {
 def triggerAlarm() {
     device.updateSetting("tripped", true)
     sendEvent(name:"tripped",value:"true")
+}
+
+def triggerPreAlarm() {
+    device.updateSetting("preAlarmTripped", true)
+    sendEvent(name:"preAlarmTripped",value:"true")
 }
 
 String declareJavascriptFunction(deviceid, String command, String secondaryValue=null, boolean secondaryJavascript=false) {
