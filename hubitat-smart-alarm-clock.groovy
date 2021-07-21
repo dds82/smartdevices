@@ -24,6 +24,7 @@ metadata {
         command "changeAlarmTime", [[name: "Time*", type: "STRING"]]
         command "setDayState", [[name: "Day*", type: "ENUM", constraints: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Shabbat"]], [name: "Enabled*", type: "ENUM", constraints: ["on", "off", "default"]]]
         command "snooze"
+        command "dismiss"
         //command "isValidDay", [[name: "day", type: "STRING"]]
      }
      preferences {
@@ -198,9 +199,17 @@ def doScheduleChange(sched=null) {
     }
 }
 
-def snooze() {
+boolean dismiss() {
     if (tripped) {
         tripperOff()
+        return true
+    }
+    
+    return false
+}
+
+def snooze() {
+    if (dismiss()) {
         runIn(snoozeDuration * 60, snoozed)
     }
 }
