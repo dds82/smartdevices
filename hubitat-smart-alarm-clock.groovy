@@ -20,6 +20,7 @@ metadata {
         attribute "SnoozeDuration", "number"
         attribute "editableTime", "string"
         attribute "alarmTime", "string"
+        attribute "preAlarmTime", "string"
         command "changeAlarmTime", [[name: "Time*", type: "STRING"]]
         command "setDayState", [[name: "Day*", type: "ENUM", constraints: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Shabbat"]], [name: "Enabled*", type: "ENUM", constraints: ["on", "off", "default"]]]
         command "snooze"
@@ -177,6 +178,8 @@ def doScheduleChange(sched=null) {
         cal.setTime(sched)
         //log.debug "time is ${cal.getTime()} ${sched}"
         
+        SimpleDateFormat df = new SimpleDateFormat("HH:mm")
+        
         String cron = "0 ${cal.get(Calendar.MINUTE)} ${cal.get(Calendar.HOUR_OF_DAY)} ? * ${daysOfWeek()}"
         schedule(cron, alarmEvent)
         
@@ -184,9 +187,11 @@ def doScheduleChange(sched=null) {
             cal.add(Calendar.MINUTE, -preAlarm.toInteger())
             cron = "0 ${cal.get(Calendar.MINUTE)} ${cal.get(Calendar.HOUR_OF_DAY)} ? * ${daysOfWeek()}"
             schedule(cron, preAlarmEvent)
+            
+            def preAlarmTimeOnly = df.format(cal.getTime())
+            sendEvent(name: "preAlarmTime", value: preAlarmTimeOnly)
         }
         
-        SimpleDateFormat df = new SimpleDateFormat("HH:mm")
         def timeOnly = df.format(sched)
         sendEvent(name: "alarmTime", value: timeOnly)
         updateHtmlWidgets(timeOnly)
