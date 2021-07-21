@@ -78,6 +78,8 @@ def installed() {
      configParams.each {
          sendEvent("name":it.key,"value":settings[it.value.name] ? "on" : "off")
      }
+     
+     device.setLabel(device.getName() + " (" + time +")")
        
  }
  def on(){
