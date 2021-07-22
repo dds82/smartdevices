@@ -82,9 +82,10 @@ def installed() {
  }
 
  def on(){
+
      sendEvent(name:"switch",value:"on")
      tripperOff()
-     doScheduleChange(null, true)
+     doScheduleChange(null, true, "on")
  }
 
  def off(){
@@ -166,10 +167,11 @@ String daysOfWeek() {
     return str
 }
 
-def doScheduleChange(sched=null, fireEvent=true) {
+def doScheduleChange(sched=null, fireEvent=true, String switchOverride=null) {
     doUnschedule()
     tripperOff()
-    boolean scheduleCron = (device.currentValue("switch") == "on")
+    def sw = switchOverride == null ? device.currentValue("switch") : switchOverride
+    boolean scheduleCron = ("on".equals(sw) || "true".equals(sw))
     
     if (!sched)
         sched = timer
