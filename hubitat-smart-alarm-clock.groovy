@@ -289,14 +289,17 @@ def triggerPreAlarm() {
 
 String declareJavascriptFunction(deviceid, String command, String secondaryValue=null, boolean secondaryJavascript=false) {
     String url = makerUrl + deviceid + "/" + command + ((!secondaryJavascript && secondaryValue) ? "/" + secondaryValue : "")
+    String secondaryJs = ""
     String secondary = ""
     if (secondaryJavascript) {
-        secondary = "/\"+" + secondaryValue + "+\""
+        secondaryJs = "\"+" + secondaryValue + "+\""
+        secondary = "/" + secondaryJs
     }
     
     String s = "var xhttp = new XMLHttpRequest();"
     s += "xhttp.open(\"GET\", \"" + url + secondary + "?access_token=" + accessToken + "\", true);"
     s += "xhttp.send();"
+    s += "alert(\"${device.label} set to " + secondaryJs + "\");"
     return s
 }
 
