@@ -27,6 +27,7 @@ metadata {
         attribute SKA, "enum", ["true", "false"]
         attribute DRS, "enum", ["true", "false"]
         attribute "busing", "enum", ["true", "false"]
+        attribute "school", "enum", ["true", "false"]
         attribute "statusToday", "string"
         attribute "statusTomorrow", "string"
         command "updateStatusText", [[name:"Date", type:"STRING"]]
@@ -305,5 +306,20 @@ def updateStatusText(String forceDate=null) {
         }
         
         sendEvent("name": "statusTomorrow", "value": tomorrowS)
+    }
+    
+    Map attrs = rawSchedule.get(today)
+    if (attrs != null) {
+        attrs.each {
+            sendEvent(name: it.key, value: it.value)
+        }
+    }
+    else {
+        speakMap.each {
+            sendEvent(name: it.key, value: "true")
+        }
+        
+        sendEvent(name: "school", value: "true")
+        sendEvent(name: "busing", value: "true")
     }
 }
