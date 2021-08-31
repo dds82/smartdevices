@@ -77,6 +77,7 @@ def updated(){
 
 @SuppressWarnings('unused')
 def configure() {
+    unschedule(updateStatusText)
     if(debugEnable) log.debug "configure()"
     schedule("0 1 0 * * ?", updateStatusText)
 }
