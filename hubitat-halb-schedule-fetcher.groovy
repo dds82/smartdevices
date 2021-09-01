@@ -92,9 +92,31 @@ def updated(){
 
 @SuppressWarnings('unused')
 def configure() {
-    unschedule(updateStatusText)
+    unschedule(nightlyUpdate)
     if(debugEnable) log.debug "configure()"
-    schedule("0 1 0 * * ?", updateStatusText)
+    schedule("0 1 0 * * ?", nightlyUpdate)
+}
+
+def nightlyUpdate() {
+    boolean fullRefresh = false
+    if (state.lastDayOfSchool != null) {
+        Date lastDay = new Date(state.lastDayOfSchool)
+        lastDayMap.each {
+            if (it.value.after(lastDay)) {
+                lastDay = it.value
+            }
+        }
+        
+        Date now = new Date()
+        fullRefresh = now.after(lastDay)
+    }
+    
+    if (fullRefresh) {
+        refresh()
+    }
+    else {
+        updateStatusText()
+    }
 }
 
 def refresh() {
@@ -102,7 +124,7 @@ def refresh() {
 }
 
 def uninstalled() {
-    unschedule(updateStatusText)
+    unschedule(nightlyUpdate)
 }
 
 def parseCalendar(response, data) {
