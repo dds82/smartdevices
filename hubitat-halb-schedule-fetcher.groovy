@@ -52,11 +52,15 @@ preferences {
 @Field static final String EVENT = "calnamebox"
 
 @Field static final Map SPEAK_MAP = ["LC": "Early Childhood", "HALB": "Elementary School", "SKA": "Girls High School", "DRS": "Boys High School", "MS": "Middle School"]
+@Field static final List ATTRIBUTES = ["LC", "HALB", "SKA", "DRS"]
 
 @Field static final String NO_SESSIONS = "No Sessions"
 @Field static final String NO_SESSIONS_TYPO = "So Sessions"
 @Field static final String NO_BUS = "No District Busing"
 @Field static final String DISMISSAL_CHANGE = "Dismissal"
+@Field static final String LAST_DAY_1 = "Last Day of Sessions"
+@Field static final String LAST_DAY_2 = "Last Day of Classes"
+@Field static final String FIRST_DAY = "First Day of Classes"
 
 // both maps are keyed by date
 // this map is a multimap, the values are maps whose keys match the exposed attributes
@@ -67,6 +71,9 @@ preferences {
 
 // this map's values are descriptive strings
 @Field static final Map descriptiveSchedule = [:]
+
+// this map's values are maps whose keys are divisions and values are dates
+@Field static final Map lastDayMap = [:]
 
 @SuppressWarnings('unused')
 def installed() {
@@ -103,6 +110,9 @@ def parseCalendar(response, data) {
         rawSchedule.clear()
         descriptiveSchedule.clear()
         dismissalSchedule.clear()
+        lastDayMap.clear()
+        state.firstDayOfSchool = null
+        state.lastDayOfSchool = null
         String rawData = response.data.trim()
         String validData = rawData
         boolean startsInvalid = rawData.startsWith("</div>")
@@ -136,15 +146,12 @@ def parseCalendar(response, data) {
             else if (clazz == EVENT) {
                 String fullText = node.text()
                 fullText.split("\\|").each{evt ->
-                    if (evt.equals(NO_BUSING) || evt.contains(NO_SESSIONS)) {
+                    if (evt.equals(NO_BUSING) || evt.contains(NO_SESSIONS) || evt.contains(DISMISSAL_CHANGE) || evt.contains(FIRST_DAY) || evt.contains(LAST_DAY_1) || evt.contains(LAST_DAY_2)) {
                         addToSchedule(cal.getTime(), evt, tempSchedule)
                     }
                     else if (evt.contains(NO_SESSIONS_TYPO)) {
                         // This is exactly one case and it's school-wide
                         addToSchedule(cal.getTime(), NO_SESSIONS, tempSchedule)
-                    }
-                    else if (evt.contains(DISMISSAL_CHANGE)) {
-                        addToSchedule(cal.getTime(), evt, tempSchedule)
                     }
                 }
             }
@@ -165,33 +172,71 @@ void addToSchedule(Date date, String item, Map sched) {
     items.add(item)
 }
 
+boolean parseFirstDay(Date when, List event) {
+    boolean found = false
+    event.each {
+        if (it.contains(FIRST_DAY)) {
+            state.firstDayOfSchool = when.getTime()
+            found = true
+            if (debugEnable) log.debug "first day of school is ${firstDayOfSchool}"
+        }
+    }
+    
+    return found
+}
+
+boolean parseLastDay(Date when, List event) {
+    boolean found = false
+    event.each {
+        if (it.contains(LAST_DAY_1) || it.contains(LAST_DAY_2)) {
+            found = true
+            if (debugEnable) log.debug "found last day ${it}"
+            boolean qualified = false
+            ATTRIBUTES.each {division ->
+                if (it.contains(division)) {
+                    if (debugEnable) log.debug "division is ${division}"
+                    qualified = true
+                    lastDayMap.put(division, when)
+                }
+            }
+            
+            if (!qualified) state.lastDayOfSchool = when.getTime()
+        }
+    }
+    
+    return found
+}
+
 void constructSchedule(Map sched) {
     sched.each {
-        boolean lcNoSessions = false
-        boolean halbNoSessions = false
-        boolean skaNoSessions = false
-        boolean drsNoSessions = false
-        boolean globalNoSessions = false
-        boolean noBusing = false
+        if (!parseFirstDay(it.key, it.value) && !parseLastDay(it.key, it.value)) {
+            boolean lcNoSessions = false
+            boolean halbNoSessions = false
+            boolean skaNoSessions = false
+            boolean drsNoSessions = false
+            boolean globalNoSessions = false
+            boolean noBusing = false
         
-        lcNoSessions = hasNoSessions(it.value, LEV_CHANA)
-        halbNoSessions = hasNoSessions(it.value, ELEMENTARY)
-        skaNoSessions = hasNoSessions(it.value, SKA)
-        drsNoSessions = hasNoSessions(it.value, DRS)
+            lcNoSessions = hasNoSessions(it.value, LEV_CHANA)
+            halbNoSessions = hasNoSessions(it.value, ELEMENTARY)
+            skaNoSessions = hasNoSessions(it.value, SKA)
+            drsNoSessions = hasNoSessions(it.value, DRS)
         
-        if (!lcNoSessions && !halbNoSessions && !skaNoSessions && !drsNoSessions) {
-            globalNoSessions = hasNoSessions(it.value)
+            if (!lcNoSessions && !halbNoSessions && !skaNoSessions && !drsNoSessions) {
+                globalNoSessions = hasNoSessions(it.value)
+            }
+        
+            noBusing = hasNoBusing(it.value)
+        
+            rawSchedule.put(it.key, ["${LEV_CHANA}": !lcNoSessions, "${ELEMENTARY}": !halbNoSessions, "${SKA}": !skaNoSessions, "${DRS}": !drsNoSessions, "school": !globalNoSessions, "busing": !noBusing])
+            buildDismissalMap(it.key, it.value)
         }
-        
-        noBusing = hasNoBusing(it.value)
-        
-        rawSchedule.put(it.key, ["${LEV_CHANA}": !lcNoSessions, "${ELEMENTARY}": !halbNoSessions, "${SKA}": !skaNoSessions, "${DRS}": !drsNoSessions, "school": !globalNoSessions, "busing": !noBusing])
-        buildDismissalMap(it.key, it.value)
     }
     
     if (debugEnable) {
         log.debug "schedule=${rawSchedule}"
         log.debug "dismissal=${dismissalSchedule}"
+        log.debug "firstDayOfSchool=${state.firstDayOfSchool} lastDayOfSchool=${state.lastDayOfSchool} divisions=${lastDayMap}"
     }
     
     constructDescriptiveSchedule()
@@ -384,7 +429,9 @@ def updateStatusText(String forceDate=null) {
     Date today = cal.getTime()
     
     int offset
-    switch (cal.get(Calendar.DAY_OF_WEEK)) {
+    final int dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+    final boolean isWeekend = dayOfWeek == Calendar.SATURDAY || dayOfWeek == Calendar.SUNDAY
+    switch (dayOfWeek) {
         case Calendar.FRIDAY:
             offset = 3
             break
@@ -406,7 +453,7 @@ def updateStatusText(String forceDate=null) {
     
     if (debugEnable) log.debug "today=${today} todayS=${todayS} tomorrow=${tomorrow} tomorrowS=${tomorrowS} offset=${offset}"
     
-    if (todayS != null) {
+    if (todayS != null && !isWeekend) {
         sendEvent("name": "statusToday", "value": todayS)
     }
     
@@ -422,17 +469,37 @@ def updateStatusText(String forceDate=null) {
     }
     
     Map attrs = rawSchedule.get(today)
-    if (attrs != null) {
+    if (attrs != null && !isWeekend) {
         attrs.each {
             sendEvent(name: it.key, value: it.value)
         }
     }
     else {
-        speakMap.each {
-            sendEvent(name: it.key, value: "true")
+        ATTRIBUTES.each {
+            sendEvent(name: it, value: isInSession(today, it) ? "true" : "false")
         }
         
-        sendEvent(name: "school", value: "true")
-        sendEvent(name: "busing", value: "true")
+        boolean sessions = isInSession(today)
+        sendEvent(name: "school", value: sessions ? "true" : "false")
+        sendEvent(name: "busing", value: sessions ? "true" : "false")
     }
+}
+
+boolean isInSession(Date when=null, String division = null) {
+    if (when == null) when = new Date()
+    Date divisionEnd = division == null ? null : lastDayMap.get(division)
+    if (divisionEnd == null) divisionEnd = new Date(state.lastDayOfSchool)
+    
+    if (state.firstDayOfSchool == null || divisionEnd == null) return false
+    Date firstDayOfSchool = new Date(state.firstDayOfSchool)
+    
+    Calendar cal = Calendar.getInstance()
+    cal.setTime(divisionEnd)
+    cal.add(Calendar.DAY_OF_MONTH, 1)
+    cal.add(Calendar.MILLISECOND, -1)
+    divisionEnd = cal.getTime()
+    
+    boolean result = when.getTime() >= firstDayOfSchool.getTime() && when.getTime() <= divisionEnd.getTime()
+    if (debugEnable) log.debug "isInSession ${when}=${result}"
+    return result
 }
