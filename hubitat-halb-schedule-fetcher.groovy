@@ -6,9 +6,11 @@ import java.util.regex.Matcher
 import java.util.Calendar
 import java.util.Date
 import java.util.ArrayList
+import java.util.TreeSet
 
 @Field static final String LEV_CHANA = "LC"
 @Field static final String ELEMENTARY = "HALB"
+@Field static final String MIDDLE_SCHOOL = "MS"
 @Field static final String SKA = "SKA"
 @Field static final String DRS = "DRS"
 
@@ -37,6 +39,7 @@ metadata {
 preferences {
     input("url", "string", title: "Calendar URL", defaultValue: "https://halb.mobi/cal_replace.php?&t0=true&t1=false&t2=true&t3=false&t4=false")
     input("debugEnable", "bool", title: "Enable debug logging")
+    input("debugXml", "bool", title: "Log raw XML")
     input("levChana", "bool", title: "Lev Chana")
     input("elementary", "bool", title: "Elementary")
     input("ska", "bool", title: "SKA")
@@ -48,15 +51,19 @@ preferences {
 @Field static final String DAY_CHANGE = "day"
 @Field static final String EVENT = "calnamebox"
 
-@Field static final Map SPEAK_MAP = ["LC": "Early Childhood", "HALB": "Elementary School", "SKA": "Girls High School", "DRS": "Boys High School"]
+@Field static final Map SPEAK_MAP = ["LC": "Early Childhood", "HALB": "Elementary School", "SKA": "Girls High School", "DRS": "Boys High School", "MS": "Middle School"]
 
 @Field static final String NO_SESSIONS = "No Sessions"
 @Field static final String NO_SESSIONS_TYPO = "So Sessions"
 @Field static final String NO_BUS = "No District Busing"
+@Field static final String DISMISSAL_CHANGE = "Dismissal"
 
 // both maps are keyed by date
 // this map is a multimap, the values are maps whose keys match the exposed attributes
 @Field static final Map rawSchedule = [:]
+
+// this map is a multimap, the values are maps whose keys match the exposed attributes (plus MS)
+@Field static final Map dismissalSchedule = [:]
 
 // this map's values are descriptive strings
 @Field static final Map descriptiveSchedule = [:]
@@ -95,6 +102,7 @@ def parseCalendar(response, data) {
     if(response.getStatus() == 200 || response.getStatus() == 207) {
         rawSchedule.clear()
         descriptiveSchedule.clear()
+        dismissalSchedule.clear()
         String rawData = response.data.trim()
         String validData = rawData
         boolean startsInvalid = rawData.startsWith("</div>")
@@ -105,11 +113,11 @@ def parseCalendar(response, data) {
         }
         
         validData = validData.replaceAll("&", "&amp;")
-        validData = validData.replaceAll("<br>", "<br />")
+        validData = validData.replaceAll("<br>", "|")
         validData = validData.replaceAll("class=(\\w+)>", "class=\"\$1\">")
         
         String wellFormed = "<root>" + validData + "</root>"
-        if (debugEnable) log.debug XmlUtil.escapeXml(wellFormed)
+        if (debugXml) log.debug XmlUtil.escapeXml(wellFormed)
         xmlData = new XmlSlurper().parseText(wellFormed)
         iter = xmlData.depthFirst()
         Calendar cal = Calendar.getInstance()
@@ -126,17 +134,23 @@ def parseCalendar(response, data) {
                 cal.set(Calendar.DAY_OF_MONTH, node.text() as int)
             }
             else if (clazz == EVENT) {
-                String evt = node.text()
-                if (evt.equals(NO_BUSING) || evt.contains(NO_SESSIONS)) {
-                    addToSchedule(cal.getTime(), node.text(), tempSchedule)
-                }
-                else if (evt.contains(NO_SESSIONS_TYPO)) {
-                    addToSchedule(cal.getTime(), NO_SESSIONS, tempSchedule)
+                String fullText = node.text()
+                fullText.split("\\|").each{evt ->
+                    if (evt.equals(NO_BUSING) || evt.contains(NO_SESSIONS)) {
+                        addToSchedule(cal.getTime(), evt, tempSchedule)
+                    }
+                    else if (evt.contains(NO_SESSIONS_TYPO)) {
+                        // This is exactly one case and it's school-wide
+                        addToSchedule(cal.getTime(), NO_SESSIONS, tempSchedule)
+                    }
+                    else if (evt.contains(DISMISSAL_CHANGE)) {
+                        addToSchedule(cal.getTime(), evt, tempSchedule)
+                    }
                 }
             }
         }
         
-        if (debugEnable) log.debug tempSchedule
+        if (debugEnable) log.debug "tempSchedule=${tempSchedule}"
         constructSchedule(tempSchedule)
     }
 }
@@ -172,17 +186,24 @@ void constructSchedule(Map sched) {
         noBusing = hasNoBusing(it.value)
         
         rawSchedule.put(it.key, ["${LEV_CHANA}": !lcNoSessions, "${ELEMENTARY}": !halbNoSessions, "${SKA}": !skaNoSessions, "${DRS}": !drsNoSessions, "school": !globalNoSessions, "busing": !noBusing])
+        buildDismissalMap(it.key, it.value)
     }
     
-    if (debugEnable) log.debug rawSchedule
+    if (debugEnable) {
+        log.debug "schedule=${rawSchedule}"
+        log.debug "dismissal=${dismissalSchedule}"
+    }
+    
     constructDescriptiveSchedule()
 }
 
 void constructDescriptiveSchedule() {
     rawSchedule.each {outer ->
         List divisionsOff = new ArrayList()
+        Map divisionsEarly = [:]
         StringBuilder sb = new StringBuilder()
         boolean everybodyOff = false
+        String everybodyEarly = null
         boolean busing = true
         
         outer.value.each {inner ->
@@ -196,6 +217,27 @@ void constructDescriptiveSchedule() {
                 }
                 else if (inner.key == "busing") {
                     if (!inner.value) busing = false
+                }
+            }
+        }
+        
+        Map dismissalMap = dismissalSchedule[outer.key]
+        if (dismissalMap != null) {
+            dismissalMap.each { dismissal ->
+                String longForm = SPEAK_MAP[dismissal.key]
+                if (longForm != null) {
+                    TreeSet list = divisionsEarly[dismissal.value]
+                    if (list == null) {
+                        list = new TreeSet()
+                        divisionsEarly[dismissal.value] = list
+                    }
+                    
+                    list.add(longForm)
+                }
+                else {
+                    if (dismissal.key == "school") {
+                        everybodyEarly = dismissal.value
+                    }
                 }
             }
         }
@@ -221,6 +263,23 @@ void constructDescriptiveSchedule() {
             
             if (sb.length() > 0) sb.append(" ")
             
+            if (!divisionsEarly.isEmpty()) {
+                divisionsEarly.each {early ->
+                    sb.append(early.value.join(", "))
+                    
+                    if (early.value.size() == 1) {
+                        sb.append(" has ")
+                    }
+                    else {
+                        int where = sb.lastIndexOf(", ")
+                        sb.replace(where, where + 2, " and ")
+                        sb.append(" have ")
+                    }
+                    
+                    sb.append(early.key).append(" dismissal today. ")
+                }
+            }
+            
             if (!busing) {
                 sb.append("There is no busing today.")
             }
@@ -244,6 +303,60 @@ boolean hasNoBusing(List event) {
     boolean noBusing = false
     event.each {noBusing |= it.contains(NO_BUS)}
     return noBusing
+}
+
+boolean buildDismissalMap(Date date, List event) {
+    event.each {
+        int idx = it.indexOf(DISMISSAL_CHANGE)
+        if (idx >= 0) {
+            if (debugEnable) log.debug "buildDismissalMap found dismissal event in ${it} at index ${idx}"
+            Map dismissalMap = dismissalSchedule.get(date)
+            if (dismissalMap == null) {
+                dismissalMap = [:]
+                dismissalSchedule.put(date, dismissalMap)
+            }
+            
+            if (it.contains(LEV_CHANA)) {
+                dismissalMap.put(LEV_CHANA, parseDismissal(it, idx))
+            }
+            else if (it.contains(ELEMENTARY)) {
+                dismissalMap.put(ELEMENTARY, parseDismissal(it, idx))
+            }
+            else if (it.contains(MIDDLE_SCHOOL)) {
+                dismissalMap.put(MIDDLE_SCHOOL, parseDismissal(it, idx))
+            }
+            else if (it.contains(DRS)) {
+                dismissalMap.put(DRS, parseDismissal(it, idx))
+            }
+            else if (it.contains(SKA)) {
+                dismissalMap.put(SKA, parseDismissal(it, idx))
+            }
+            else {
+                dismissalMap.put("school", parseDismissal(it, idx))
+            }
+        }
+    }
+}
+
+String parseDismissal(String str, int idx) {
+    if (debugEnable) log.debug "Parsing dismissal [${str}] at index ${idx}"
+    int end = idx - 2 // the previous index is a space
+    if (end >= 0) {
+        int start = str.lastIndexOf(" ", end)
+        if (start >= 0) {
+            String result = str.substring(start + 1, end + 1).toUpperCase()
+            if (!result.equalsIgnoreCase("Early") && !str.charAt(start + 1).isDigit()) {
+                // ex: "1 PM" instead of "1PM"
+                int numberStart = str.lastIndexOf(" ", start - 1)
+                result = str.substring(numberStart + 1, start) + result
+            }
+            
+            if (debugEnable) log.debug "Dismissal parsed: ${result}"
+            return result
+        }
+    }
+    
+    return null;
 }
 
 def updateStatusText(String forceDate=null) {
