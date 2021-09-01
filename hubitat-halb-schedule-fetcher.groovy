@@ -476,10 +476,10 @@ def updateStatusText(String forceDate=null) {
     }
     else {
         ATTRIBUTES.each {
-            sendEvent(name: it, value: isInSession(today, it) ? "true" : "false")
+            sendEvent(name: it, value: !isWeekend && isInSession(today, it) ? "true" : "false")
         }
         
-        boolean sessions = isInSession(today)
+        boolean sessions = !isWeekend && isInSession(today)
         sendEvent(name: "school", value: sessions ? "true" : "false")
         sendEvent(name: "busing", value: sessions ? "true" : "false")
     }
