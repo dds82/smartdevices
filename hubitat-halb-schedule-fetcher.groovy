@@ -52,6 +52,7 @@ preferences {
 @Field static final String EVENT = "calnamebox"
 
 @Field static final Map SPEAK_MAP = ["LC": "Early Childhood", "HALB": "Elementary School", "SKA": "Girls High School", "DRS": "Boys High School", "MS": "Middle School"]
+@Field static final Map PREFERENCE_MAP = ["LC": "levChana", "HALB": "elementary", "SKA": "ska", "DRS": "drs"]
 @Field static final List ATTRIBUTES = ["LC", "HALB", "SKA", "DRS"]
 
 @Field static final String NO_SESSIONS = "No Sessions"
@@ -495,19 +496,43 @@ def updateStatusText(String forceDate=null) {
     
     Map attrs = rawSchedule.get(today)
     if (attrs != null && !isWeekend) {
-        attrs.each {
-            sendEvent(name: it.key, value: it.value)
+        attrs.each {            
+            if (shouldSendEvent(it.key)) {
+                boolean on = it.value
+                if (ATTRIBUTES.contains(it.key as String) && !attrs.get("school")) {
+                    on = false
+                }
+                
+                sendEvent(name: it.key, value: on)
+            }
+            else {
+                device.deleteCurrentState(it.key)
+            }
         }
     }
     else {
         ATTRIBUTES.each {
-            sendEvent(name: it, value: !isWeekend && isInSession(today, it) ? "true" : "false")
+            if (shouldSendEvent(it)) {
+                sendEvent(name: it, value: !isWeekend && isInSession(today, it) ? "true" : "false")
+            }
+            else {
+                device.deleteCurrentState(it)
+            }
         }
         
         boolean sessions = !isWeekend && isInSession(today)
         sendEvent(name: "school", value: sessions ? "true" : "false")
         sendEvent(name: "busing", value: sessions ? "true" : "false")
     }
+}
+
+boolean shouldSendEvent(String name) {
+    String pref = PREFERENCE_MAP[name]
+    boolean on = true
+    if (pref != null) {
+        on = settings[pref] as boolean
+    }
+    return on
 }
 
 boolean isInSession(Date when=null, String division = null) {
