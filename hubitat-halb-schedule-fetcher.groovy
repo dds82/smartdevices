@@ -182,6 +182,9 @@ def parseCalendar(response, data) {
         if (debugEnable) log.debug "tempSchedule=${tempSchedule}"
         constructSchedule(tempSchedule)
     }
+    else {
+        log.error "Server returned error fetching calendar data"
+    }
 }
 
 void addToSchedule(Date date, String item, Map sched) {
