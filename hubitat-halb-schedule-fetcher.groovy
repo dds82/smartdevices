@@ -479,19 +479,22 @@ def updateStatusText(String forceDate=null) {
     
     if (debugEnable) log.debug "today=${today} todayS=${todayS} tomorrow=${tomorrow} tomorrowS=${tomorrowS} offset=${offset}"
     
-    if (todayS != null && !isWeekend) {
-        sendEvent("name": "statusToday", "value": todayS)
+    if (tomorrowS != null) {
+        String tomorrowDay = "tomorrow"
+        if (offset != 1) tomorrowDay = "on Monday"
+        
+        if (!isWeekend && todayS == tomorrowS) {
+            // Today and tomorrow have the same schedule
+            todayS = todayS.replaceAll("today", "today or " + tomorrowDay)
+        }
+        else {        
+            tomorrowS = tomorrowS.replaceAll("today", tomorrowDay)
+            sendEvent("name": "statusTomorrow", "value": tomorrowS)
+        }
     }
     
-    if (tomorrowS != null) {
-        if (offset != 1) {
-            tomorrowS = tomorrowS.replaceAll("today", "on Monday")
-        }
-        else {
-            tomorrowS = tomorrowS.replaceAll("today", "tomorrow")
-        }
-        
-        sendEvent("name": "statusTomorrow", "value": tomorrowS)
+    if (todayS != null && !isWeekend) {
+        sendEvent("name": "statusToday", "value": todayS)
     }
     
     Map attrs = rawSchedule.get(today)
