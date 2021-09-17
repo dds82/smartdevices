@@ -32,6 +32,7 @@ metadata {
         attribute "school", "enum", ["true", "false"]
         attribute "statusToday", "string"
         attribute "statusTomorrow", "string"
+        attribute "vacation", "enum", ["true", "false"]
         command "updateStatusText", [[name:"Date", type:"STRING"]]
     }   
 }
@@ -57,6 +58,7 @@ preferences {
 
 @Field static final String NO_SESSIONS = "No Sessions"
 @Field static final String NO_SESSIONS_TYPO = "So Sessions"
+@Field static final String CHOL_HAMOED = "Chol Hamoed"
 @Field static final String NO_BUS = "No District Busing"
 @Field static final String DISMISSAL_CHANGE = "Dismissal"
 @Field static final String LAST_DAY_1 = "Last Day of Sessions"
@@ -75,6 +77,8 @@ preferences {
 
 // this map's values are maps whose keys are divisions and values are dates
 @Field static final Map lastDayMap = [:]
+
+@Field static final TreeMap vacationMap = new TreeMap()
 
 @SuppressWarnings('unused')
 def installed() {
@@ -172,8 +176,8 @@ def parseCalendar(response, data) {
                     if (evt.equals(NO_BUSING) || evt.contains(NO_SESSIONS) || evt.contains(DISMISSAL_CHANGE) || evt.contains(FIRST_DAY) || evt.contains(LAST_DAY_1) || evt.contains(LAST_DAY_2)) {
                         addToSchedule(cal.getTime(), evt, tempSchedule)
                     }
-                    else if (evt.contains(NO_SESSIONS_TYPO)) {
-                        // This is exactly one case and it's school-wide
+                    else if (evt.contains(NO_SESSIONS_TYPO) || evt.contains(CHOL_HAMOED)) {
+                        // These cases should be school-wide no sessions
                         addToSchedule(cal.getTime(), NO_SESSIONS, tempSchedule)
                     }
                 }
@@ -234,6 +238,7 @@ boolean parseLastDay(Date when, List event) {
 }
 
 void constructSchedule(Map sched) {
+    List currentVacation = []
     sched.each {
         if (!parseFirstDay(it.key, it.value) && !parseLastDay(it.key, it.value)) {
             boolean lcNoSessions = false
@@ -256,16 +261,36 @@ void constructSchedule(Map sched) {
         
             rawSchedule.put(it.key, ["${LEV_CHANA}": !lcNoSessions, "${ELEMENTARY}": !halbNoSessions, "${SKA}": !skaNoSessions, "${DRS}": !drsNoSessions, "school": !globalNoSessions, "busing": !noBusing])
             buildDismissalMap(it.key, it.value)
+            if (globalNoSessions) {
+                currentVacation.add(it.key)
+            }
+            else {
+                addVacation(currentVacation)
+                currentVacation.clear()
+            }
         }
     }
     
     if (debugEnable) {
         log.debug "schedule=${rawSchedule}"
         log.debug "dismissal=${dismissalSchedule}"
-        log.debug "firstDayOfSchool=${state.firstDayOfSchool} lastDayOfSchool=${state.lastDayOfSchool} divisions=${lastDayMap}"
+        log.debug "firstDayOfSchool=${state.firstDayOfSchool} lastDayOfSchool=${state.lastDayOfSchool} divisions=${lastDayMap} vacationMap=${vacationMap}"
     }
     
     constructDescriptiveSchedule()
+}
+
+void addVacation(List days) {
+    if (days.isEmpty())
+        return
+    
+    Calendar cal = Calendar.getInstance()
+    cal.setTime(days.get(days.size() - 1))
+    cal.add(Calendar.DAY_OF_MONTH, 1)
+    cal.add(Calendar.MILLISECOND, -1)
+    Date vacationEnd = cal.getTime()
+    
+    vacationMap.put(days.get(0), vacationEnd)
 }
 
 void constructDescriptiveSchedule() {
@@ -526,6 +551,15 @@ def updateStatusText(String forceDate=null) {
         boolean sessions = !isWeekend && isInSession(today)
         sendEvent(name: "school", value: sessions ? "true" : "false")
         sendEvent(name: "busing", value: sessions ? "true" : "false")
+    }
+    
+    vacation = vacationMap.floorEntry(today)
+    if (vacation != null) {
+        Date vacationEnd = vacation.getValue()
+        sendEvent(name: "vacation", value: vacationEnd.after(today).toString())
+    }
+    else {
+        sendEvent(name: "vacation", value: "false")
     }
 }
 
