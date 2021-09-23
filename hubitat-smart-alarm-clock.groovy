@@ -25,6 +25,7 @@ metadata {
         command "setDayState", [[name: "Day*", type: "ENUM", constraints: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Shabbat"]], [name: "Enabled*", type: "ENUM", constraints: ["on", "off", "default"]]]
         command "snooze"
         command "dismiss"
+        command "dismissAndLeaveOn"
         //command "isValidDay", [[name: "day", type: "STRING"]]
      }
      preferences {
@@ -34,10 +35,12 @@ metadata {
              configParams.each {input it.value}
              input name: "shabbat", type: "enum", title: "Shabbat/Yom Tov", description: "", required: false, options: ["off", "on", "default"], defaultValue: "off"
              input name: "shabbatMode", type: "enum", title: "Shabbat Mode name", required:true, options: getModeOptions(), defaultValue: "Shabbat"
+             input name: "normal", type: "enum", title: "Normal", description: "Optional quick override to the daily toggles which applies when the Hub's mode is the Normal mode", required: false, options: ["off", "on", "default"], defaultValue: "default"
+             input name: "normalMode", type: "enum", title: "Normal Mode name", required:true, options: getModeOptions(), defaultValue: "Home"
              input name: "snoozeDuration", type: "number", title: "Snooze Duration", description: "Minutes", required: false, defaultValue: 10
-             input name: "preAlarm", type: "number", title: "Pre-Alarm", description: "How many minutes before the alarm event to fire a pre-alarm event", required: false, defaultValue: 20
          }
          
+         input name: "preAlarm", type: "number", title: "Pre-Alarm", description: "How many minutes before the alarm event to set a pre-alarm event", required: false, defaultValue: 20
          input name: "makerUrl", type: "string", title: "Maker API base URL", required: false, description: "The base URL for the maker API, up to and including 'devices/'"
          input name: "accessToken", type: "string", title: "Maker API access token", required: false, description: "Access token for the maker API"
  	}
@@ -220,6 +223,10 @@ def doScheduleChange(sched=null, fireEvent=true, String switchOverride=null) {
     }
 }
 
+boolean dismissAndLeaveOn() {
+    return dismiss(false)
+}
+
 boolean dismiss(turnMasterSwitchOff=true) {
     if (tripped) {
         tripperOff()
@@ -254,12 +261,19 @@ boolean isValidDay(String d=null) {
 
 boolean validateAlarmEvent() {
     boolean valid = true
+    String specialOverride = null
     if (location.mode == shabbatMode) {
-        if (shabbat == "off") {
-            return
+        specialOverride = shabbat
+    }
+    else if (location.mode == normalMode) {
+        specialOverride = normal
+    }
+    
+    if (specialOverride != null) {
+        if (specialOverride == "off") {
+            valid = false
         }
-        
-        if (shabbat != "on") {
+        else if (specialOverride != "on") {
             valid = isValidDay()
         }
     }
