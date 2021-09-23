@@ -29,11 +29,15 @@ metadata {
      }
      preferences {
          input name: "timer", type: "time", title: "Alarm Time", description: "Enter Time", required: false
-         configParams.each {input it.value}
-         input name: "shabbat", type: "enum", title: "Shabbat/Yom Tov", description: "", required: false, options: ["off", "on", "default"], defaultValue: "off"
-         input name: "shabbatMode", type: "enum", title: "Shabbat Mode name", required:true, options: getModeOptions(), defaultValue: "Shabbat"
-        input name: "snoozeDuration", type: "number", title: "Snooze Duration", description: "Minutes", required: false, defaultValue: 10
-         input name: "preAlarm", type: "number", title: "Pre-Alarm", description: "How many minutes before the alarm event to fire a pre-alarm event", required: false, defaultValue: 20
+         input name: "eventsEnabled", type: "bool", title: "Fire Events", description: "If turned off, no events will be fired", defaultValue:true, required: false
+         if (isAlarmEventsEnabled()) {
+             configParams.each {input it.value}
+             input name: "shabbat", type: "enum", title: "Shabbat/Yom Tov", description: "", required: false, options: ["off", "on", "default"], defaultValue: "off"
+             input name: "shabbatMode", type: "enum", title: "Shabbat Mode name", required:true, options: getModeOptions(), defaultValue: "Shabbat"
+             input name: "snoozeDuration", type: "number", title: "Snooze Duration", description: "Minutes", required: false, defaultValue: 10
+             input name: "preAlarm", type: "number", title: "Pre-Alarm", description: "How many minutes before the alarm event to fire a pre-alarm event", required: false, defaultValue: 20
+         }
+         
          input name: "makerUrl", type: "string", title: "Maker API base URL", required: false, description: "The base URL for the maker API, up to and including 'devices/'"
          input name: "accessToken", type: "string", title: "Maker API access token", required: false, description: "Access token for the maker API"
  	}
@@ -167,11 +171,15 @@ String daysOfWeek() {
     return str
 }
 
+boolean isAlarmEventsEnabled() {
+    return (eventsEnabled == null || eventsEnabled)
+}
+
 def doScheduleChange(sched=null, fireEvent=true, String switchOverride=null) {
     doUnschedule()
     tripperOff()
     def sw = switchOverride == null ? device.currentValue("switch") : switchOverride
-    boolean scheduleCron = ("on".equals(sw) || "true".equals(sw))
+    boolean scheduleCron = isAlarmEventsEnabled() && ("on".equals(sw) || "true".equals(sw))
     
     if (!sched)
         sched = timer
@@ -226,7 +234,8 @@ boolean dismiss(turnMasterSwitchOff=true) {
 
 def snooze() {
     if (dismiss(false)) {
-        runIn(snoozeDuration * 60, snoozed)
+        if (isAlarmEventsEnabled())
+            runIn(snoozeDuration * 60, snoozed)
     }
 }
 
