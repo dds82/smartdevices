@@ -232,6 +232,8 @@ boolean dismiss(turnMasterSwitchOff=true) {
         tripperOff()
         if (turnMasterSwitchOff)
             off()
+        else
+            doScheduleChange()
         
         return true
     }
