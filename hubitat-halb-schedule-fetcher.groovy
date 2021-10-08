@@ -173,7 +173,7 @@ def parseCalendar(response, data) {
             else if (clazz == EVENT) {
                 String fullText = node.text()
                 fullText.split("\\|").each{evt ->
-                    if (evt.equals(NO_BUSING) || evt.contains(NO_SESSIONS) || evt.contains(DISMISSAL_CHANGE) || evt.contains(FIRST_DAY) || evt.contains(LAST_DAY_1) || evt.contains(LAST_DAY_2)) {
+                    if (evt.contains(NO_BUS) || evt.contains(NO_SESSIONS) || evt.contains(DISMISSAL_CHANGE) || evt.contains(FIRST_DAY) || evt.contains(LAST_DAY_1) || evt.contains(LAST_DAY_2)) {
                         addToSchedule(cal.getTime(), evt, tempSchedule)
                     }
                     else if (evt.contains(NO_SESSIONS_TYPO) || evt.contains(CHOL_HAMOED)) {
