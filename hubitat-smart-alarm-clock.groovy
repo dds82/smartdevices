@@ -40,7 +40,7 @@ metadata {
              input name: "snoozeDuration", type: "number", title: "Snooze Duration", description: "Minutes", required: false, defaultValue: 10
          }
          
-         input name: "preAlarm", type: "number", title: "Pre-Alarm", description: "How many minutes before the alarm event to set a pre-alarm event", required: false, defaultValue: 20
+         input name: "preAlarm", type: "number", title: "Pre-Alarm", description: "How many minutes before the alarm event to set a pre-alarm event", required: false, defaultValue: 15
          input name: "makerUrl", type: "string", title: "Maker API base URL", required: false, description: "The base URL for the maker API, up to and including 'devices/'"
          input name: "accessToken", type: "string", title: "Maker API access token", required: false, description: "Access token for the maker API"
  	}
