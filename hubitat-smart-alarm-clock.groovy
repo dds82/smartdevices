@@ -41,7 +41,8 @@ metadata {
          }
          
          input name: "preAlarm", type: "number", title: "Pre-Alarm", description: "How many minutes before the alarm event to set a pre-alarm event", required: false, defaultValue: 15
-         input name: "makerUrl", type: "string", title: "Maker API base URL", required: false, description: "The base URL for the maker API, up to and including 'devices/'"
+         input name: "makerApiAppID", type: "string", title: "Maker API App ID", required: false, description: "The Maker API App's app ID.  For example: https://cloud.hubitat.com/api/[UUID]/apps/[AppID]..."
+         input name: "hubUUID", type: "string", title: "Hub UUID", required: false, description: "The Hub's UUID for the maker API, for cloud access.  For example: https://cloud.hubitat.com/api/[UUID]/apps/[AppID]..."
          input name: "accessToken", type: "string", title: "Maker API access token", required: false, description: "Access token for the maker API"
  	}
  }
@@ -313,7 +314,6 @@ def triggerPreAlarm() {
 }
 
 String declareJavascriptFunction(deviceid, String command, String secondaryValue=null, boolean secondaryJavascript=false) {
-    String url = makerUrl + deviceid + "/" + command + ((!secondaryJavascript && secondaryValue) ? "/" + secondaryValue : "")
     String secondaryJs = ""
     String secondary = ""
     if (secondaryJavascript) {
@@ -321,8 +321,21 @@ String declareJavascriptFunction(deviceid, String command, String secondaryValue
         secondary = "/" + secondaryJs
     }
     
-    String s = "var xhttp = new XMLHttpRequest();"
-    s += "xhttp.open(\"GET\", \"" + url + secondary + "?access_token=" + accessToken + "\", true);"
+    String urlBuilder = "var appID = \"" + makerApiAppID + "\";"
+    urlBuilder += "var uuid = \"" + hubUUID + "\";"
+    urlBuilder += "var origin = window.location.origin;"
+    urlBuilder += "var fullURL = origin;"
+    urlBuilder += "var appURL = \"\";"
+    urlBuilder += "if (window.location.origin.toLowerCase().includes(\"cloud.hubitat.com\")) {"
+    urlBuilder += "    appURL = origin + \"/api/\" + uuid + \"/apps/\" + appID;"
+    urlBuilder += "}"
+    urlBuilder += "else {"
+    urlBuilder += "    appURL = origin + \"/apps/api/\" + appID;"
+    urlBuilder += "}"
+    urlBuilder += "appURL += \"/devices/" + deviceid + "/" + command + ((!secondaryJavascript && secondaryValue) ? "/" + secondaryValue : "") + "\";"
+    
+    String s = urlBuilder + "var xhttp = new XMLHttpRequest();"
+    s += "xhttp.open(\"GET\", appURL + \"" + secondary + "?access_token=" + accessToken + "\", true);"
     s += "xhttp.send();"
     s += "alert(\"${device.label} set to " + secondaryJs + "\");"
     return s
