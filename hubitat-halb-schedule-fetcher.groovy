@@ -17,7 +17,7 @@ import java.util.TreeSet
 
 metadata {
     definition (
-        name: "HALB Calendar", 
+        name: "HALB Calendar JSON", 
         namespace: "halbcalendar", 
         author: "dsegall",
     ) {
@@ -38,9 +38,8 @@ metadata {
 }
 
 preferences {
-    input("url", "string", title: "Calendar URL", defaultValue: "https://halb.mobi/cal_replace.php?&t0=true&t1=false&t2=true&t3=false&t4=false")
     input("debugEnable", "bool", title: "Enable debug logging")
-    input("debugXml", "bool", title: "Log raw XML")
+    input("debugJson", "bool", title: "Log JSON")
     input("levChana", "bool", title: "Lev Chana")
     input("elementary", "bool", title: "Elementary")
     input("ska", "bool", title: "SKA")
@@ -48,9 +47,6 @@ preferences {
 }
 
 @Field static final SimpleDateFormat MONTH_AND_YEAR = new SimpleDateFormat("MMMM yyyy")
-@Field static final String MONTH_CHANGE = "calinnermonthbox"
-@Field static final String DAY_CHANGE = "day"
-@Field static final String EVENT = "calnamebox"
 
 @Field static final Map SPEAK_MAP = ["LC": "Early Childhood", "HALB": "Elementary School", "SKA": "Girls High School", "DRS": "Boys High School", "MS": "Middle School"]
 @Field static final Map PREFERENCE_MAP = ["LC": "levChana", "HALB": "elementary", "SKA": "ska", "DRS": "drs"]
@@ -125,7 +121,7 @@ def nightlyUpdate() {
 }
 
 def refresh() {
-    asynchttpGet("parseCalendar", [uri: url + "?t0=true&t1=${levChana}&t2=${elementary}&t3=${ska}&t4=${drs}"])
+    asynchttpGet("parseCalendar", [uri: "http://halb.mobi/cal2/events.php"])
 }
 
 def uninstalled() {
@@ -140,46 +136,19 @@ def parseCalendar(response, data) {
         lastDayMap.clear()
         state.firstDayOfSchool = null
         state.lastDayOfSchool = null
-        String rawData = response.data.trim()
-        String validData = rawData
-        boolean startsInvalid = rawData.startsWith("</div>")
-        while (startsInvalid) {
-            validData = rawData.substring("</div>".length())
-            rawData = validData
-            startsInvalid = rawData.startsWith("</div>")
-        }
-        
-        validData = validData.replaceAll("&", "&amp;")
-        validData = validData.replaceAll("<br>", "|")
-        validData = validData.replaceAll("class=(\\w+)>", "class=\"\$1\">")
-        
-        String wellFormed = "<root>" + validData + "</root>"
-        if (debugXml) log.debug XmlUtil.escapeXml(wellFormed)
-        xmlData = new XmlSlurper().parseText(wellFormed)
-        iter = xmlData.depthFirst()
-        Calendar cal = Calendar.getInstance()
+        rawData = parseJson(response.getData())
+        if (debugJson) log.debug rawData.custom
         
         Map tempSchedule = [:]
-        while (iter.hasNext()) {
-            node = iter.next()
-            clazz = node.@class
-            if (clazz == MONTH_CHANGE) {
-                Date date = MONTH_AND_YEAR.parse(node.text())
-                cal.setTime(date)
-            }
-            else if (clazz == DAY_CHANGE) {
-                cal.set(Calendar.DAY_OF_MONTH, node.text() as int)
-            }
-            else if (clazz == EVENT) {
-                String fullText = node.text()
-                fullText.split("\\|").each{evt ->
-                    if (evt.contains(NO_BUS) || evt.contains(NO_SESSIONS) || evt.contains(DISMISSAL_CHANGE) || evt.contains(FIRST_DAY) || evt.contains(LAST_DAY_1) || evt.contains(LAST_DAY_2)) {
-                        addToSchedule(cal.getTime(), evt, tempSchedule)
-                    }
-                    else if (evt.contains(NO_SESSIONS_TYPO) || evt.contains(CHOL_HAMOED)) {
-                        // These cases should be school-wide no sessions
-                        addToSchedule(cal.getTime(), NO_SESSIONS, tempSchedule)
-                    }
+        for (item in rawData.custom) {
+            String fullText = item.title
+            fullText.split("\\|").each{evt ->
+                if (evt.contains(NO_BUS) || evt.contains(NO_SESSIONS) || evt.contains(DISMISSAL_CHANGE) || evt.contains(FIRST_DAY) || evt.contains(LAST_DAY_1) || evt.contains(LAST_DAY_2)) {
+                    addToSchedule(toDateTime(item.start), evt, tempSchedule)
+                }
+                else if (evt.contains(NO_SESSIONS_TYPO) || evt.contains(CHOL_HAMOED)) {
+                    // These cases should be school-wide no sessions
+                    addToSchedule(toDateTime(item.start), NO_SESSIONS, tempSchedule)
                 }
             }
         }
@@ -192,14 +161,32 @@ def parseCalendar(response, data) {
     }
 }
 
-void addToSchedule(Date date, String item, Map sched) {
-    List items = sched.get(date)
-    if (items == null) {
-        items = new ArrayList()
-        sched.put(date, items)
-    }
+boolean isIncluded(String item) {
+    if (!levChana && item.contains(LEV_CHANA))
+        return false;
     
-    items.add(item)
+    if (!elementary && (item.contains(ELEMENTARY) || item.contains(MIDDLE_SCHOOL)))
+        return false;
+        
+    if (!ska && item.contains(SKA))
+            return false;
+        
+    if (!drs && item.contains(DRS))
+        return false;
+        
+    return true;
+}
+
+void addToSchedule(Date date, String item, Map sched) {
+    if (isIncluded(item)) {
+        List items = sched.get(date)
+        if (items == null) {
+            items = new ArrayList()
+            sched.put(date, items)
+        }
+    
+        items.add(item)
+    }
 }
 
 boolean parseFirstDay(Date when, List event) {
