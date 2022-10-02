@@ -38,9 +38,9 @@ metadata {
              input name: "normal", type: "enum", title: "Normal", description: "Optional quick override to the daily toggles which applies when the Hub's mode is the Normal mode", required: false, options: ["off", "on", "default"], defaultValue: "default"
              input name: "normalMode", type: "enum", title: "Normal Mode name", required:true, options: getModeOptions(), defaultValue: "Home"
              input name: "snoozeDuration", type: "number", title: "Snooze Duration", description: "Minutes", required: false, defaultValue: 10
+             input name: "preAlarm", type: "number", title: "Pre-Alarm", description: "How many minutes before the alarm event to set a pre-alarm event", required: false, defaultValue: 15
          }
          
-         input name: "preAlarm", type: "number", title: "Pre-Alarm", description: "How many minutes before the alarm event to set a pre-alarm event", required: false, defaultValue: 15
          input name: "makerApiAppID", type: "string", title: "Maker API App ID", required: false, description: "The Maker API App's app ID.  For example: https://cloud.hubitat.com/api/[UUID]/apps/[AppID]..."
          input name: "hubUUID", type: "string", title: "Hub UUID", required: false, description: "The Hub's UUID for the maker API, for cloud access.  For example: https://cloud.hubitat.com/api/[UUID]/apps/[AppID]..."
          input name: "accessToken", type: "string", title: "Maker API access token", required: false, description: "Access token for the maker API"
