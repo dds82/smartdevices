@@ -339,7 +339,15 @@ String declareJavascriptFunction(deviceid, String command, String secondaryValue
     s += "xhttp.send();"
     String jsLabel = device.label == null ? device.name : device.label;
     jsLabel = jsLabel.replace("\'", "")
+    s += "xhttp.onreadystatechange = function() {"
+    s += "if (this.readyState == 4) {"
+    s += "if (this.status == 200) {"
     s += "alert(\"${jsLabel} set to " + secondaryJs + "\");"
+    s += "} else {"
+    s += "alert(\"Error: \" + xhttp.responseText);"
+    s += "}"
+    s += "}"
+    s += "}"
     return s
 }
 
