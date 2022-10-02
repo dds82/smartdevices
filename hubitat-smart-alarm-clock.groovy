@@ -337,7 +337,9 @@ String declareJavascriptFunction(deviceid, String command, String secondaryValue
     String s = urlBuilder + "var xhttp = new XMLHttpRequest();"
     s += "xhttp.open(\"GET\", appURL + \"" + secondary + "?access_token=" + accessToken + "\", true);"
     s += "xhttp.send();"
-    s += "alert(\"${device.label} set to " + secondaryJs + "\");"
+    String jsLabel = device.label == null ? device.name : device.label;
+    jsLabel = jsLabel.replace("\'", "")
+    s += "alert(\"${jsLabel} set to " + secondaryJs + "\");"
     return s
 }
 
