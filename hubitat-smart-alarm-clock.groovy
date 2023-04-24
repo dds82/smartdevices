@@ -38,7 +38,7 @@ metadata {
              input name: "normal", type: "enum", title: "Normal", description: "Optional quick override to the daily toggles which applies when the Hub's mode is the Normal mode", required: false, options: ["off", "on", "default"], defaultValue: "default"
              input name: "normalMode", type: "enum", title: "Normal Mode name", required:true, options: getModeOptions(), defaultValue: "Home"
              input name: "snoozeDuration", type: "number", title: "Snooze Duration", description: "Minutes", required: false, defaultValue: 10
-             input name: "preAlarm", type: "number", title: "Pre-Alarm", description: "How many minutes before the alarm event to set a pre-alarm event", required: false, defaultValue: 15
+             input name: "preAlarm", type: "number", title: "Pre-Alarm", description: "How many minutes before the alarm event to set a pre-alarm event", required: false, defaultValue: null
              input name: "momentary", type: "bool", title: "Momentary", description: "If set, the 'tripped' event will behave as a momentary event", requred: false
          }
          
