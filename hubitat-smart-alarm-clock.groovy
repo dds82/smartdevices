@@ -39,7 +39,7 @@ metadata {
              input name: "normalMode", type: "enum", title: "Normal Mode name", required:true, options: getModeOptions(), defaultValue: "Home"
              input name: "snoozeDuration", type: "number", title: "Snooze Duration", description: "Minutes", required: false, defaultValue: 10
              input name: "preAlarm", type: "number", title: "Pre-Alarm", description: "How many minutes before the alarm event to set a pre-alarm event", required: false, defaultValue: null
-             input name: "momentary", type: "bool", title: "Momentary", description: "If set, the 'tripped' event will behave as a momentary event", requred: false
+             input name: "momentary", type: "bool", title: "Momentary", description: "If set, the 'tripped' event will behave as a momentary event", required: false, defaultValue: false
          }
          
          input name: "makerApiAppID", type: "string", title: "Maker API App ID", required: false, description: "The Maker API App's app ID.  For example: https://cloud.hubitat.com/api/[UUID]/apps/[AppID]..."
@@ -181,7 +181,7 @@ boolean isAlarmEventsEnabled() {
 }
 
 boolean isMomentary() {
-    return momentary == null || momentary
+    return momentary != null && momentary
 }
 
 def doScheduleChange(sched=null, fireEvent=true, String switchOverride=null) {
@@ -296,7 +296,7 @@ def preAlarmEvent() {
         triggerPreAlarm()
         
         if (isMomentary())
-            preAlarmOff()
+            runIn(1, "preAlarmOff")
     }
 }
 
@@ -306,7 +306,7 @@ def alarmEvent() {
         triggerAlarm()
         
         if (isMomentary())
-            dismissAndLeaveOn()
+            runIn(1, "dismissAndLeaveOn")
     }
 }
 
