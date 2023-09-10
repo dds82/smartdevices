@@ -1,6 +1,9 @@
 import groovy.transform.Field
 import java.util.Calendar
+import java.text.ParseException
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.format.DateTimeFormatter
 
 metadata {
  	definition (name: "Hubitat Smart Alarm Clock", namespace: "smartdevices", author: "Daniel Segall") {
@@ -19,16 +22,26 @@ metadata {
         attribute "preAlarmTripped", "enum", ["true", "false"]
         attribute "SnoozeDuration", "number"
         attribute "editableTime", "string"
+        attribute "editableTimeType", "string"
         attribute "alarmTime", "string"
+        attribute "alarmTimeType", "enum", [CONSTANT_TIME, SUNRISE_PLUS, SUNRISE_MINUS, SUNSET_PLUS, SUNSET_MINUS]
         attribute "preAlarmTime", "string"
         command "changeAlarmTime", [[name: "Time*", type: "STRING"]]
         command "setDayState", [[name: "Day*", type: "ENUM", constraints: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Shabbat"]], [name: "Enabled*", type: "ENUM", constraints: ["on", "off", "default"]]]
         command "snooze"
         command "dismiss"
         command "dismissAndLeaveOn"
+        command "constantTime"
+        command "sunrisePlus"
+        command "sunriseMinus"
+        command "sunsetPlus"
+        command "sunsetMinus"
+        command "nextTimeType"
+        command "prevTimeType"
         //command "isValidDay", [[name: "day", type: "STRING"]]
      }
      preferences {
+         input name: "timerType", type: "enum", title: "Alarm Time Type", required:true, options: [CONSTANT_TIME, SUNRISE_PLUS, SUNRISE_MINUS, SUNSET_PLUS, SUNSET_MINUS], defaultValue: CONSTANT_TIME
          input name: "timer", type: "time", title: "Alarm Time", description: "Enter Time", required: false
          input name: "eventsEnabled", type: "bool", title: "Fire Events", description: "If turned off, no events will be fired", defaultValue:true, required: false
          if (isAlarmEventsEnabled()) {
@@ -60,6 +73,14 @@ metadata {
 
 @Field static String[] daysOfWeek = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
 
+@Field static String CONSTANT_TIME = "Constant"
+@Field static String SUNRISE_PLUS = "Sunrise Plus"
+@Field static String SUNRISE_MINUS = "Sunrise Minus"
+@Field static String SUNSET_PLUS = "Sunset Plus"
+@Field static String SUNSET_MINUS = "Sunset Minus"
+@Field static Map TIME_TYPES = ["Constant":"constantTime", "Sunrise Plus":"sunrisePlus", "Sunrise Minus":"sunriseMinus", "Sunset Plus":"sunsetPlus", "Sunset Minus":"sunsetMinus"]
+@Field static List TIME_TYPES_ORDERED = ["Constant", "Sunrise Plus", "Sunrise Minus", "Sunset Plus", "Sunset Minus"]
+
 List<String> getModeOptions() {
     List<String> options = new ArrayList<>()
     for (Object mode : location.getModes())
@@ -68,12 +89,39 @@ List<String> getModeOptions() {
     return options
 }
 
+def constantTime() {
+    setTimeType(CONSTANT_TIME)
+}
+
+def sunrisePlus() {
+    setTimeType(SUNRISE_PLUS)
+}
+
+def sunriseMinus() {
+    setTimeType(SUNRISE_MINUS)
+}
+
+def sunsetPlus() {
+    setTimeType(SUNSET_PLUS)
+}
+
+def sunsetMinus() {
+    setTimeType(SUNSET_MINUS)
+}
+
+def setTimeType(type) {
+    device.updateSetting("timerType", [type: "enum", value: type])
+    sendEvent(name: "alarmTimeType", value: type)
+    doScheduleChange()
+}
+
  def uninstalled() {
      doUnschedule()
  }
 
 def installed() {
     updated()
+    constantTime()
     changeAlarmTime("07:00")
     off()
 }
@@ -87,6 +135,7 @@ def installed() {
          sendEvent("name":it.key,"value":settings[it.value.name] ? "on" : "off")
      }
      
+     sendEvent(name: "alarmTimeType", value: timerType)
      doScheduleChange()
  }
 
@@ -103,7 +152,7 @@ def installed() {
      doUnschedule()
  } 
 
- def changeAlarmTime(paramTime) {
+  def changeAlarmTime(paramTime) {
      SimpleDateFormat df = new SimpleDateFormat("HH:mm")
      //log.debug "changeAlarmTime ${paramTime} ${df.parse(paramTime)}"
      Date d = df.parse(paramTime)
@@ -184,6 +233,45 @@ boolean isMomentary() {
     return momentary != null && momentary
 }
 
+Calendar applyOffset(Date d) {
+    Calendar cal = Calendar.getInstance()
+     Calendar settingCal = Calendar.getInstance()
+     settingCal.setTime(d)
+     String timerType = device.getSetting("timerType") ?: CONSTANT_TIME
+     switch (timerType) {
+         case SUNRISE_PLUS:
+             cal.setTime(location.sunrise)
+             cal.add(Calendar.HOUR_OF_DAY, settingCal.get(Calendar.HOUR_OF_DAY))
+             cal.add(Calendar.MINUTE, settingCal.get(Calendar.MINUTE))
+             break
+         
+         case SUNRISE_MINUS:
+             cal.setTime(location.sunrise)
+             cal.add(Calendar.HOUR_OF_DAY, -settingCal.get(Calendar.HOUR_OF_DAY))
+             cal.add(Calendar.MINUTE, -settingCal.get(Calendar.MINUTE))
+             break
+         
+         case SUNSET_PLUS:
+             cal.setTime(location.sunset)
+             cal.add(Calendar.HOUR_OF_DAY, settingCal.get(Calendar.HOUR_OF_DAY))
+             cal.add(Calendar.MINUTE, settingCal.get(Calendar.MINUTE))
+             break
+         
+         case SUNSET_MINUS:
+             cal.setTime(location.sunset)
+             cal.add(Calendar.HOUR_OF_DAY, -settingCal.get(Calendar.HOUR_OF_DAY))
+             cal.add(Calendar.MINUTE, -settingCal.get(Calendar.MINUTE))
+             break
+         
+         default:
+             cal = settingCal
+             break
+     }
+    
+    //log.debug "Time with offset=${cal.getTime()}, offset=${timerType}"    
+    return cal
+}
+
 def doScheduleChange(sched=null, fireEvent=true, String switchOverride=null) {
     doUnschedule()
     tripperOff()
@@ -197,8 +285,7 @@ def doScheduleChange(sched=null, fireEvent=true, String switchOverride=null) {
         if (!(sched instanceof Date))
             sched = toDateTime(sched)
         
-        Calendar cal = Calendar.getInstance()
-        cal.setTime(sched)
+        Calendar cal = applyOffset(sched)
         //log.debug "time is ${cal.getTime()} ${sched}"
         
         SimpleDateFormat df = new SimpleDateFormat("HH:mm")
@@ -325,6 +412,10 @@ def triggerPreAlarm() {
 }
 
 String declareJavascriptFunction(deviceid, String command, String secondaryValue=null, boolean secondaryJavascript=false) {
+    return declareJavascriptFunctionAndReadyStateChange(deviceid, command, secondaryValue, secondaryJavascript, true)
+}
+
+String declareJavascriptFunctionAndReadyStateChange(deviceid, String command, String secondaryValue=null, boolean secondaryJavascript=false, boolean includeReadyStateChange=false) {
     String secondaryJs = ""
     String secondary = ""
     if (secondaryJavascript) {
@@ -332,25 +423,33 @@ String declareJavascriptFunction(deviceid, String command, String secondaryValue
         secondary = "/" + secondaryJs
     }
     
-    String urlBuilder = "var appID = \"" + makerApiAppID + "\";"
-    urlBuilder += "var uuid = \"" + hubUUID + "\";"
-    urlBuilder += "var origin = window.location.origin;"
-    urlBuilder += "var fullURL = origin;"
-    urlBuilder += "var appURL = \"\";"
-    urlBuilder += "if (window.location.origin.toLowerCase().includes(\"cloud.hubitat.com\")) {"
-    urlBuilder += "    appURL = origin + \"/api/\" + uuid + \"/apps/\" + appID;"
+    String urlBuilder = "var a=\"" + makerApiAppID + "\";"
+    urlBuilder += "var i=\"" + hubUUID + "\";"
+    urlBuilder += "var o=window.location.origin;"
+    urlBuilder += "var f=origin;"
+    urlBuilder += "var u=\"\";"
+    urlBuilder += "if(o.toLowerCase().includes(\"cloud.hubitat.com\")){"
+    urlBuilder += "u=o+\"/api/\"+i+\"/apps/\"+a;"
     urlBuilder += "}"
-    urlBuilder += "else {"
-    urlBuilder += "    appURL = origin + \"/apps/api/\" + appID;"
+    urlBuilder += "else{"
+    urlBuilder += "u=origin+\"/apps/api/\"+a;"
     urlBuilder += "}"
-    urlBuilder += "appURL += \"/devices/" + deviceid + "/" + command + ((!secondaryJavascript && secondaryValue) ? "/" + secondaryValue : "") + "\";"
+    urlBuilder += "u+=\"/devices/" + deviceid + "/" + command + ((!secondaryJavascript && secondaryValue) ? "/" + secondaryValue : "") + "\";"
     
-    String s = urlBuilder + "var xhttp = new XMLHttpRequest();"
-    s += "xhttp.open(\"GET\", appURL + \"" + secondary + "?access_token=" + accessToken + "\", true);"
-    s += "xhttp.send();"
+    String s = urlBuilder + "var x=new XMLHttpRequest();"
+    s += "x.open(\"GET\", u + \"" + secondary + "?access_token=" + accessToken + "\", true);"
+    s += "x.send();"
+    
+    if (includeReadyStateChange)
+        s += declareReadyStateChange(secondaryJs)
+    
+    return s
+}
+
+String declareReadyStateChange(String secondaryJs) {
     String jsLabel = device.label == null ? device.name : device.label;
     jsLabel = jsLabel.replace("\'", "")
-    s += "xhttp.onreadystatechange = function() {"
+    String s = "xhttp.onreadystatechange = function() {"
     s += "if (this.readyState == 4) {"
     s += "if (this.status == 200) {"
     s += "alert(\"${jsLabel} set to " + secondaryJs + "\");"
@@ -366,4 +465,73 @@ def updateHtmlWidgets(String time) {
     String js = declareJavascriptFunction(device.id, "changeAlarmTime", "document.getElementById(\"newtime-${device.id}\").value", true)
     String html = "<input id=\"newtime-${device.id}\" type=\"time\" value=\"${time}\" /> <input type=\"button\" value=\"Set\" style=\"padding-left:2px;padding-right:2px\" onclick='javascript:" + js + "' />"
     sendEvent(name: "editableTime", value: html)
+    
+    updateTimeType()
+}
+
+String clickableBegin(String command) {
+    if (makerApiAppID != null && hubUUID != null && accessToken != null)
+        return "<div onclick='javascript:" + declareJavascriptFunctionAndReadyStateChange(device.id, command) + "'>"
+    
+    return "<div>"
+}
+
+String buildTimeTypeBlock(String activeType, String currentType) {
+    final String clickableEnd = "</div>"
+    
+    final String headerBegin = "<span style=\"border:2px outset\">"
+    final String headerEnd = "</span>"
+    
+    final String dimBegin = ""
+    final String dimEnd = ""
+    
+    String text = "<div>"
+    if (activeType == currentType)
+        text += headerBegin
+    else
+        text += dimBegin
+    text += currentType
+    if (activeType == currentType)
+        text += headerEnd
+    else
+        text += dimEnd
+        
+    text += clickableEnd
+}
+
+def updateTimeType() {    
+    final String activeType = device.getSetting("timerType") ?: CONSTANT_TIME
+    int idx = TIME_TYPES_ORDERED.indexOf(activeType)
+        
+    String times = clickableBegin("prevTimeType") + "&uarr;" + "</div>"
+    times += buildTimeTypeBlock(activeType, TIME_TYPES_ORDERED[prevTimeIdx(idx)]) +  buildTimeTypeBlock(activeType,TIME_TYPES_ORDERED[idx]) +  buildTimeTypeBlock(activeType, TIME_TYPES_ORDERED[nextTimeIdx(idx)])
+    times += clickableBegin("nextTimeType") + "&darr;" + "</div>"
+    
+    //if (debugLogging)
+    log.debug "Times=" + times.replaceAll("<", "&lt;").replaceAll(">", "&gt;") + " Times length = " + times.length()
+    
+    sendEvent("name":"editableTimeType", "value": times)
+}
+
+int prevTimeIdx(int idx) {
+    if (idx == 0)
+        return TIME_TYPES_ORDERED.size() - 1
+    
+    return idx - 1
+}
+
+int nextTimeIdx(int idx) {
+    return (idx + 1) % TIME_TYPES_ORDERED.size()
+}
+
+def nextTimeType() {
+    final String activeType = device.getSetting("timerType") ?: CONSTANT_TIME
+    int idx = TIME_TYPES_ORDERED.indexOf(activeType)
+    setTimeType(TIME_TYPES_ORDERED.get(nextTimeIdx(idx)))
+}
+
+def prevTimeType() {
+    final String activeType = device.getSetting("timerType") ?: CONSTANT_TIME
+    int idx = TIME_TYPES_ORDERED.indexOf(activeType)
+    setTimeType(TIME_TYPES_ORDERED.get(prevTimeIdx(idx)))
 }
