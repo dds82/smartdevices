@@ -113,6 +113,7 @@ def setTimeType(type) {
     device.updateSetting("timerType", [type: "enum", value: type])
     sendEvent(name: "alarmTimeType", value: type)
     doScheduleChange()
+    maybeScheduleSunriseSunset(type)
 }
 
  def uninstalled() {
@@ -137,6 +138,7 @@ def installed() {
      
      sendEvent(name: "alarmTimeType", value: timerType)
      doScheduleChange()
+     maybeScheduleSunriseSunset()
  }
 
  def on(){
@@ -205,6 +207,19 @@ def doUnschedule() {
     unschedule(alarmEvent)
      unschedule(snoozed)
     unschedule(preAlarmEvent)
+    unschedule(recalcSunriseSunset)
+}
+
+def recalcSunriseSunset() {
+    doScheduleChange()
+}
+
+def maybeScheduleSunriseSunset(type=null) {
+    if (type == null)
+        type = timerType
+    
+    if (type == CONSTANT_TIME) unschedule(recalcSunriseSunset)
+    else schedule("0 5 0 * * ?", recalcSunriseSunset, [overwrite : true])
 }
 
 String daysOfWeek() {
@@ -507,8 +522,7 @@ def updateTimeType() {
     times += buildTimeTypeBlock(activeType, TIME_TYPES_ORDERED[prevTimeIdx(idx)]) +  buildTimeTypeBlock(activeType,TIME_TYPES_ORDERED[idx]) +  buildTimeTypeBlock(activeType, TIME_TYPES_ORDERED[nextTimeIdx(idx)])
     times += clickableBegin("nextTimeType") + "&darr;" + "</div>"
     
-    //if (debugLogging)
-    log.debug "Times=" + times.replaceAll("<", "&lt;").replaceAll(">", "&gt;") + " Times length = " + times.length()
+    // log.debug "Times=" + times.replaceAll("<", "&lt;").replaceAll(">", "&gt;") + " Times length = " + times.length()
     
     sendEvent("name":"editableTimeType", "value": times)
 }
