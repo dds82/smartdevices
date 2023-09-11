@@ -146,12 +146,14 @@ def installed() {
      sendEvent(name:"switch",value:"on")
      tripperOff()
      doScheduleChange(null, true, "on")
+     maybeScheduleSunriseSunset()
  }
 
  def off(){
      sendEvent(name:"switch",value:"off")
      tripperOff()
      doUnschedule()
+     maybeScheduleSunriseSunset()
  } 
 
   def changeAlarmTime(paramTime) {
@@ -323,11 +325,12 @@ def doScheduleChange(sched=null, fireEvent=true, String switchOverride=null) {
                 sendEvent(name: "preAlarmTime", value: preAlarmTimeOnly)
         }
         
-        def timeOnly = df.format(sched)
+        def eventTimeOnly = df.format(cal.getTime())
+        def editableTimeOnly = df.format(sched)
         if (fireEvent)
-            sendEvent(name: "alarmTime", value: timeOnly)
+            sendEvent(name: "alarmTime", value: eventTimeOnly)
         
-        updateHtmlWidgets(timeOnly)
+        updateHtmlWidgets(editableTimeOnly)
     }
 }
 
