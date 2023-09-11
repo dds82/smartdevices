@@ -27,6 +27,7 @@ metadata {
         attribute "alarmTimeType", "enum", [CONSTANT_TIME, SUNRISE_PLUS, SUNRISE_MINUS, SUNSET_PLUS, SUNSET_MINUS]
         attribute "preAlarmTime", "string"
         command "changeAlarmTime", [[name: "Time*", type: "STRING"]]
+        command "setAlarmTimeInMinutes", [[name: "Minutes*", type: "NUMBER"]]
         command "setDayState", [[name: "Day*", type: "ENUM", constraints: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Shabbat"]], [name: "Enabled*", type: "ENUM", constraints: ["on", "off", "default"]]]
         command "snooze"
         command "dismiss"
@@ -163,6 +164,13 @@ def installed() {
      device.updateSetting("timer", d)
      tripperOff()
      doScheduleChange(d)
+}
+
+def setAlarmTimeInMinutes(totalMinutes) {
+    Long min = totalMinutes as long
+    long hours = min / 60
+    long minutes = min % 60
+    changeAlarmTime(hours + ":" + minutes)
 }
 
 def preAlarmOff() {
@@ -467,12 +475,12 @@ String declareJavascriptFunctionAndReadyStateChange(deviceid, String command, St
 String declareReadyStateChange(String secondaryJs) {
     String jsLabel = device.label == null ? device.name : device.label;
     jsLabel = jsLabel.replace("\'", "")
-    String s = "xhttp.onreadystatechange = function() {"
-    s += "if (this.readyState == 4) {"
-    s += "if (this.status == 200) {"
+    String s = "x.onreadystatechange=function(){"
+    s += "if(this.readyState == 4){"
+    s += "if(this.status == 200){"
     s += "alert(\"${jsLabel} set to " + secondaryJs + "\");"
-    s += "} else {"
-    s += "alert(\"Error: \" + xhttp.responseText);"
+    s += "}else{"
+    s += "alert(\"Error: \" + x.responseText);"
     s += "}"
     s += "}"
     s += "}"
@@ -480,8 +488,18 @@ String declareReadyStateChange(String secondaryJs) {
 }
 
 def updateHtmlWidgets(String time) {
-    String js = declareJavascriptFunction(device.id, "changeAlarmTime", "document.getElementById(\"newtime-${device.id}\").value", true)
-    String html = "<input id=\"newtime-${device.id}\" type=\"time\" value=\"${time}\" /> <input type=\"button\" value=\"Set\" style=\"padding-left:2px;padding-right:2px\" onclick='javascript:" + js + "' />"
+    if (device.getSetting("timerType") == CONSTANT_TIME) {
+        String js = declareJavascriptFunction(device.id, "changeAlarmTime", "document.getElementById(\"newtime-${device.id}\").value", true)
+        html = "<input id=\"newtime-${device.id}\" type=\"time\" value=\"${time}\" /> <input type=\"button\" value=\"Set\" style=\"padding-left:2px;padding-right:2px\" onclick='javascript:" + js + "' />"
+    }
+    else {
+        Calendar cal = Calendar.getInstance()
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm")
+        cal.setTime(sdf.parse(time))
+        String js = declareJavascriptFunction(device.id, "setAlarmTimeInMinutes", "document.getElementById(\"newtime-${device.id}\").value", true)
+        html = "<input id=\"newtime-${device.id}\" type=\"text\" size=\"4\" value=\"${(cal.get(Calendar.HOUR_OF_DAY) * 60) + cal.get(Calendar.MINUTE)}\" /> minutes <input type=\"button\" value=\"Set\" style=\"padding-left:2px;padding-right:2px\" onclick='javascript:" + js + "' />"
+    }
+    
     sendEvent(name: "editableTime", value: html)
     
     updateTimeType()
