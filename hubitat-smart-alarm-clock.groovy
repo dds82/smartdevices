@@ -498,12 +498,45 @@ def updateHtmlWidgets(String time) {
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm")
         cal.setTime(sdf.parse(time))
         String js = declareJavascriptFunction(device.id, "setAlarmTimeInMinutes", "document.getElementById(\"newtime-${device.id}\").value", true)
-        html = "<input id=\"newtime-${device.id}\" type=\"text\" size=\"4\" value=\"${(cal.get(Calendar.HOUR_OF_DAY) * 60) + cal.get(Calendar.MINUTE)}\" /> minutes <input type=\"button\" value=\"Set\" style=\"padding-left:2px;padding-right:2px\" onclick='javascript:" + js + "' />"
+        html = "<input id=\"newtime-${device.id}\" type=\"text\" size=\"4\" value=\"${(cal.get(Calendar.HOUR_OF_DAY) * 60) + cal.get(Calendar.MINUTE)}\" /> minutes ${buildDescription(setType)} <input type=\"button\" value=\"Set\" style=\"padding-left:2px;padding-right:2px\" onclick='javascript:" + js + "' />"
     }
     
     sendEvent(name: "editableTime", value: html)
     
     updateTimeType()
+}
+
+String buildDescription(String setType) {
+    if (setType != null) {
+        String timepoint
+        String relative
+        
+        switch (setType) {
+            case SUNSET_PLUS:
+            case SUNSET_MINUS:
+                timepoint = "sunset"
+                break
+            
+            case SUNRISE_PLUS:
+            case SUNRISE_MINUS:
+                timepoint = "sunrise"
+                break
+        }
+        
+        switch (setType) {
+            case SUNSET_PLUS:
+            case SUNRISE_PLUS:
+                relative = "after"
+                break
+            
+            case SUNSET_MINUS:
+            case SUNRISE_MINUS:
+                relative = "before"
+                break
+        }
+        
+        return relative + " " + timepoint
+    }
 }
 
 String clickableBegin(String command) {
