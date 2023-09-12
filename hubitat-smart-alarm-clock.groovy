@@ -488,7 +488,8 @@ String declareReadyStateChange(String secondaryJs) {
 }
 
 def updateHtmlWidgets(String time) {
-    if (device.getSetting("timerType") == CONSTANT_TIME) {
+    Object setType = device.getSetting("timerType")
+    if (setType == null || setType == CONSTANT_TIME) {
         String js = declareJavascriptFunction(device.id, "changeAlarmTime", "document.getElementById(\"newtime-${device.id}\").value", true)
         html = "<input id=\"newtime-${device.id}\" type=\"time\" value=\"${time}\" /> <input type=\"button\" value=\"Set\" style=\"padding-left:2px;padding-right:2px\" onclick='javascript:" + js + "' />"
     }
