@@ -161,6 +161,7 @@ def installed() {
      SimpleDateFormat df = new SimpleDateFormat("HH:mm")
      //log.debug "changeAlarmTime ${paramTime} ${df.parse(paramTime)}"
      Date d = df.parse(paramTime)
+
      device.updateSetting("timer", d)
      tripperOff()
      doScheduleChange(d)
@@ -320,6 +321,8 @@ def doScheduleChange(sched=null, fireEvent=true, String switchOverride=null) {
             schedule(cron, alarmEvent)
         }
         
+        def eventTimeOnly = df.format(cal.getTime())
+        
         if (preAlarm != null && preAlarm > 0) {
             cal.add(Calendar.MINUTE, -preAlarm.toInteger())
             
@@ -333,8 +336,9 @@ def doScheduleChange(sched=null, fireEvent=true, String switchOverride=null) {
                 sendEvent(name: "preAlarmTime", value: preAlarmTimeOnly)
         }
         
-        def eventTimeOnly = df.format(cal.getTime())
+     
         def editableTimeOnly = df.format(sched)
+
         if (fireEvent)
             sendEvent(name: "alarmTime", value: eventTimeOnly)
         
