@@ -165,6 +165,7 @@ def installed() {
      device.updateSetting("timer", d)
      tripperOff()
      doScheduleChange(d)
+     maybeScheduleSunriseSunset()
 }
 
 def setAlarmTimeInMinutes(totalMinutes) {
