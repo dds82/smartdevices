@@ -345,6 +345,8 @@ def doScheduleChange(sched=null, fireEvent=true, String switchOverride=null) {
         
         updateHtmlWidgets(editableTimeOnly)
     }
+    
+    maybeScheduleSunriseSunset()
 }
 
 boolean dismissAndLeaveOn() {
