@@ -10,6 +10,7 @@ metadata {
  		capability "Actuator"
  		capability "Switch"
  		capability "Sensor"
+   capability "Initialize"
         attribute "Monday", "enum", ["on", "off"]
         attribute "Tuesday", "enum", ["on", "off"]
         attribute "Wednesday", "enum", ["on", "off"]
