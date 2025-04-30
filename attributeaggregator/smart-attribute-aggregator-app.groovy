@@ -33,12 +33,6 @@ preferences {
                 }
             }
         }
-
-        if (state?.childLabel) {
-            section("Current Child Device") {
-                paragraph "Child Device Name: ${state.childLabel}"
-            }
-        }
     }
 }
 
