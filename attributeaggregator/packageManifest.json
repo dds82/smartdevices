@@ -1,0 +1,27 @@
+{
+  "packageName": "Smart Attribute Aggregator",
+  "author": "Daniel Segall",
+  "version": "1.0",
+  "minimumHEVersion": "2.1.9",
+  "dateReleased": "2025-04-30",
+  "apps": [
+    {
+      "id": "dba7380e-b657-4f4f-92fb-b4892a1990c7",
+      "name": "Smart Attribute Aggregator",
+      "namespace": "smartdevices",
+      "location": "https://raw.githubusercontent.com/dds82/smartdevices/refs/heads/master/attributeaggregator/smart-attribute-aggregator-app.groovy",
+      "required": true,
+      "oauth": false,
+      "primary": false
+    }
+  ],
+  "drivers": [
+    {
+      "id": "d6903da7-9528-4517-8ebe-3ff0fb1dcf34",
+      "name": "Smart Attribute Aggregator Child",
+      "namespace": "smartdevices",
+      "location": "https://raw.githubusercontent.com/dds82/smartdevices/refs/heads/master/attributeaggregator/smart-attribute-aggregator-child-device.groovy",
+      "required": true
+    }
+  ]
+}
