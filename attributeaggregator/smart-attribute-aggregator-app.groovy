@@ -18,7 +18,7 @@ preferences {
         section("Settings") {
             input "minBattery", "number", title: "Minimum Battery %", defaultValue: 10, range: "1..100", required: true
             input "maxHours", "number", title: "Maximum Hours Since Last Update (optional — ignored if not set or ≤ 0)", required: false
-            input "childLabel", "text", title: "Name for Aggregated Child Device", required: false, submitOnChange: true
+            input "childLabel", "text", title: "Name for Aggregated Child Device", required: true, submitOnChange: true
         }
 
         if (batteryDevice && mainDevice) {
