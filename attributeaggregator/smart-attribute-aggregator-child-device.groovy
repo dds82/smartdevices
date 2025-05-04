@@ -9,12 +9,22 @@ metadata {
         capability "Health Check"
 		capability "Refresh"
 
-        attribute "dataSource", "string" // New attribute to track source (battery or mains)
+        attribute "dataSource", "string"
+        attribute "batteryDevice", "string"
+        attribute "mainsDevice", "string"
     }
 }
 
 def setDataSource(source) {
     sendEvent(name: "dataSource", value: source)
+}
+
+def setBatteryDevice(source) {
+    sendEvent(name: "batteryDevice", value: source)
+}
+
+def setMainsDevice(source) {
+    sendEvent(name: "mainsDevice", value: source)
 }
 
 def installed() {
@@ -39,6 +49,7 @@ def refresh() {
     // Call the parent app to update all attributes of the child device
     def parentApp = getParent()
     if (parentApp) {
+        parentApp.setSourceDevicesOnChild()
         parentApp.updateChildAttributes()  // Trigger the parent app to update child attributes
     }
 }
