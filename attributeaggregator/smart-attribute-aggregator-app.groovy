@@ -13,7 +13,7 @@ preferences {
     page(name: "mainPage", title: "Attribute Aggregator Configuration", install: isInstallable(), uninstall: true) {
         section("Devices") {
             input "batteryDevice", "capability.battery", title: "Battery-Powered Device", required: true, multiple: false, submitOnChange: true
-            input "mainDevice", "capability.*", title: "Non-Battery-Powered Device", required: true, multiple: false, submitOnChange: true
+            input "mainDevice", "capability.sensor", title: "Non-Battery-Powered Device", required: true, multiple: false, submitOnChange: true
         }
         section("Settings") {
             input "minBattery", "number", title: "Minimum Battery %", defaultValue: 10, range: "1..100", required: true
@@ -53,6 +53,12 @@ def uninstalled() {
         deleteChildDevice(child.deviceNetworkId)
         log.info "Deleted child device: ${child.displayName}"
     }
+}
+
+def setSourceDevicesOnChild() {
+    def child = getChildDevice(getChildDNI())
+    child?.setBatteryDevice(batteryDevice)
+    child?.setMainsDevice(mainDevice)
 }
 
 def initialize() {
