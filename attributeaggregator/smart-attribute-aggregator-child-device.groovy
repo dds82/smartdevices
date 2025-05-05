@@ -12,6 +12,7 @@ metadata {
         attribute "dataSource", "string"
         attribute "batteryDevice", "string"
         attribute "mainsDevice", "string"
+        attribute "failover", "boolean"
     }
 }
 
@@ -25,6 +26,10 @@ def setBatteryDevice(source) {
 
 def setMainsDevice(source) {
     sendEvent(name: "mainsDevice", value: source)
+}
+
+def setFailover(b) {
+    sendEvent(name: "failover", value: b)
 }
 
 def installed() {
