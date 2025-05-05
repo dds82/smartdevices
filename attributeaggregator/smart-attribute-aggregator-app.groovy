@@ -167,6 +167,7 @@ def updateChildAttributes() {
 
     // Set the dataSource attribute on the child device
     child?.setDataSource(sourceType) // This will update the "dataSource" attribute on the child device
+    child?.setFailover(!batteryOK)
 
     def commonAttrs = getCommonAttributes()
     commonAttrs.each { attr ->
