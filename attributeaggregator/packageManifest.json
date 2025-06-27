@@ -1,9 +1,9 @@
 {
   "packageName": "Smart Attribute Aggregator",
   "author": "Daniel Segall",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "minimumHEVersion": "2.1.9",
-  "dateReleased": "2025-05-03",
+  "dateReleased": "2025-06-27",
   "apps": [
     {
       "id": "dba7380e-b657-4f4f-92fb-b4892a1990c7",
