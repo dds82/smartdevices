@@ -13,15 +13,25 @@ preferences {
     page(name: "mainPage", title: "Attribute Aggregator Configuration", install: isInstallable(), uninstall: true) {
         section("Devices") {
             input "batteryDevice", "capability.battery", title: "Battery-Powered Device", required: true, multiple: false, submitOnChange: true
-            input "mainDevice", "capability.sensor", title: "Non-Battery-Powered Device", required: true, multiple: false, submitOnChange: true
+            input "mainDevice", "capability.sensor", title: "Non-Battery-Powered Device(s)", required: true, multiple: true, submitOnChange: true
         }
         section("Settings") {
             input "minBattery", "number", title: "Minimum Battery %", defaultValue: 10, range: "1..100", required: true
             input "maxHours", "number", title: "Maximum Hours Since Last Update (optional — ignored if not set or ≤ 0)", required: false
             input "childLabel", "text", title: "Name for Aggregated Child Device", required: true, submitOnChange: true
+            
+            // Show aggregator selection only if multiple main devices are selected
+            if (mainDevice && ((mainDevice instanceof List && mainDevice.size() > 1) || 
+                              (!(mainDevice instanceof List) && false))) {
+                input "aggregator", "enum", title: "Aggregation Method", 
+                      options: ["Average", "Min", "Max", "Sum"], 
+                      defaultValue: "Average", required: true, submitOnChange: true
+            }
         }
 
         if (batteryDevice && mainDevice) {
+            // Ensure mainDevice is treated as a list for consistency
+            def mainDeviceList = (mainDevice instanceof List) ? mainDevice : [mainDevice]
             def common = getCommonAttributes()
             if (common.isEmpty()) {
                 section("⚠️ Warning") {
@@ -30,6 +40,9 @@ preferences {
             } else {
                 section("Common Attributes Found") {
                     paragraph "These attributes will be aggregated: ${common.join(', ')}"
+                    if (mainDeviceList.size() > 1) {
+                        paragraph "Multiple main devices selected. Values will be combined using: ${aggregator ?: 'Average'}"
+                    }
                 }
             }
         }
@@ -42,6 +55,14 @@ def installed() {
 
 def updated() {
     log.debug "App updated"
+    
+    // Handle migration from single to multiple mainDevice
+    if (mainDevice && !(mainDevice instanceof List)) {
+        log.debug "Migrating single mainDevice to list format"
+        def singleDevice = mainDevice
+        app.updateSetting("mainDevice", [value: [singleDevice], type: "capability.sensor"])
+    }
+    
     unsubscribe()
     initialize()
     checkInstallable()
@@ -67,8 +88,15 @@ def initialize() {
         return
     }
 
-    if (isBatteryPowered(mainDevice)) {
-        log.warn "⚠️ The selected 'non-battery-powered' device appears to report battery. Please select a mains-powered device."
+    // Ensure mainDevice is always treated as a list
+    if (!(mainDevice instanceof List)) {
+        mainDevice = [mainDevice]
+    }
+
+    // Check if any main device is battery powered
+    def batteryPoweredMains = mainDevice.findAll { isBatteryPowered(it) }
+    if (batteryPoweredMains) {
+        log.warn "⚠️ The following 'non-battery-powered' devices appear to report battery: ${batteryPoweredMains*.displayName.join(', ')}. Please select mains-powered devices."
         return
     }
 
@@ -96,7 +124,9 @@ def initialize() {
     def commonAttrs = getCommonAttributes()
     commonAttrs.each { attr ->
         subscribe(batteryDevice, attr, attributeHandler)
-        subscribe(mainDevice, attr, attributeHandler)
+        mainDevice.each { device ->
+            subscribe(device, attr, attributeHandler)
+        }
     }
     subscribe(batteryDevice, "battery", batteryChangedHandler)
     updateChildAttributes()
@@ -128,9 +158,28 @@ def createChildDeviceIfNeeded() {
 
 def getCommonAttributes() {
     if (!batteryDevice || !mainDevice) return []
+    
+    // Ensure mainDevice is always treated as a list
+    def mainDeviceList = (mainDevice instanceof List) ? mainDevice : [mainDevice]
+    
     def attrs1 = batteryDevice.supportedAttributes*.name
-    def attrs2 = mainDevice.supportedAttributes*.name
-    return attrs1.intersect(attrs2)
+    def allMainAttrs = []
+    
+    mainDeviceList.each { device ->
+        allMainAttrs.addAll(device.supportedAttributes*.name)
+    }
+    
+    // Find attributes that exist in battery device and ALL main devices
+    def commonAttrs = attrs1.intersect(allMainAttrs)
+    
+    // Further filter to ensure the attribute exists in ALL main devices
+    commonAttrs = commonAttrs.findAll { attr ->
+        mainDeviceList.every { device ->
+            device.supportedAttributes*.name.contains(attr)
+        }
+    }
+    
+    return commonAttrs
 }
 
 def attributeHandler(evt) {
@@ -151,6 +200,31 @@ def batteryChangedHandler(evt) {
     }
 }
 
+def aggregateValues(values, method) {
+    if (!values || values.isEmpty()) return null
+    
+    def numericValues = values.findAll { it != null && (it instanceof Number || it.toString().isNumber()) }
+        .collect { it instanceof Number ? it : it.toString() as Double }
+    
+    if (numericValues.isEmpty()) {
+        // For non-numeric values, return the first non-null value
+        return values.find { it != null }
+    }
+    
+    switch (method) {
+        case "Average":
+            return numericValues.sum() / numericValues.size()
+        case "Min":
+            return numericValues.min()
+        case "Max":
+            return numericValues.max()
+        case "Sum":
+            return numericValues.sum()
+        default:
+            return numericValues.sum() / numericValues.size() // Default to average
+    }
+}
+
 def updateChildAttributes() {
     def child = getChildDevice(getChildDNI())
     def now = new Date()
@@ -160,28 +234,65 @@ def updateChildAttributes() {
     def batteryLevel = batteryDevice.currentBattery ?: 0
     def batteryOK = batteryLevel >= minBattery && (!maxHours || maxHours <= 0 || timeDiffHours <= maxHours)
 
-    def sourceDevice = batteryOK ? batteryDevice : mainDevice
-    def sourceType = sourceDevice.displayName
-
-    log.debug "Using ${sourceDevice.displayName} (Battery OK: ${batteryOK}, Level: ${batteryLevel}, Last Update: ${lastUpdate})"
-
-    // Set the dataSource attribute on the child device
-    child?.setDataSource(sourceType) // This will update the "dataSource" attribute on the child device
-    child?.setFailover(!batteryOK)
-
+    def sourceType
     def commonAttrs = getCommonAttributes()
-    commonAttrs.each { attr ->
-        try {
-            def value = sourceDevice.currentValue(attr)
-            if (value != null) {
-                child?.sendEvent(name: attr, value: value)
+    
+    if (batteryOK) {
+        // Use battery device
+        sourceType = batteryDevice.displayName
+        log.debug "Using battery device: ${batteryDevice.displayName} (Battery OK: ${batteryOK}, Level: ${batteryLevel})"
+        
+        child?.setDataSource(sourceType)
+        child?.setFailover(false)
+        
+        commonAttrs.each { attr ->
+            try {
+                def value = batteryDevice.currentValue(attr)
+                if (value != null) {
+                    child?.sendEvent(name: attr, value: value)
+                }
+            } catch (e) {
+                log.warn "Failed to update attribute '${attr}' from battery device: ${e.message}"
             }
-        } catch (e) {
-            log.warn "Failed to update attribute '${attr}': ${e.message}"
+        }
+    } else {
+        // Use main device(s) with aggregation if multiple
+        def aggregationMethod = (mainDevice.size() > 1) ? (aggregator ?: "Average") : null
+        sourceType = mainDevice.size() == 1 ? 
+                    mainDevice[0].displayName : 
+                    "Aggregated (${aggregationMethod}): ${mainDevice*.displayName.join(', ')}"
+        
+        log.debug "Using main device(s): ${mainDevice*.displayName.join(', ')} (Battery OK: ${batteryOK}, Aggregation: ${aggregationMethod})"
+        
+        child?.setDataSource(sourceType)
+        child?.setFailover(true)
+        
+        commonAttrs.each { attr ->
+            try {
+                if (mainDevice.size() == 1) {
+                    // Single main device - no aggregation needed
+                    def value = mainDevice[0].currentValue(attr)
+                    if (value != null) {
+                        child?.sendEvent(name: attr, value: value)
+                    }
+                } else {
+                    // Multiple main devices - aggregate values
+                    def values = mainDevice.collect { device ->
+                        device.currentValue(attr)
+                    }
+                    
+                    def aggregatedValue = aggregateValues(values, aggregationMethod)
+                    if (aggregatedValue != null) {
+                        child?.sendEvent(name: attr, value: aggregatedValue)
+                        log.debug "Aggregated ${attr}: ${values} -> ${aggregatedValue} (${aggregationMethod})"
+                    }
+                }
+            } catch (e) {
+                log.warn "Failed to update attribute '${attr}' from main device(s): ${e.message}"
+            }
         }
     }
 }
-
 
 def isInstallable() {
     // Ensure both devices are selected
@@ -205,7 +316,6 @@ def isInstallable() {
 
     return true
 }
-
 
 def checkInstallable() {
     // Re-check installability after every update.
